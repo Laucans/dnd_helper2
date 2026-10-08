@@ -1,0 +1,23 @@
+[workspace]
+resolver = "3"
+members = ["crates/campagne/serveur"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.94"
+publish = false
+
+[workspace.dependencies]
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
+hex = "0.4"
+sha2 = "0.11"
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "postgres", "uuid"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "time"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "ansi"] }
+uuid = { version = "1", features = ["v4"] }
+
+# Test-only.
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
