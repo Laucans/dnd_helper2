@@ -4,12 +4,14 @@
 mod common;
 
 use std::process::Stdio;
+use std::str::FromStr;
 use std::time::Duration;
 
 use campagne_serveur::config::Config;
 use campagne_serveur::migrate::{Migration, MigrationError};
 use campagne_serveur::startup::{self, StartupError};
 use common::TestDb;
+use sqlx::postgres::PgConnectOptions;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::process::{Child, Command};
@@ -124,6 +126,29 @@ async fn unreachable_database_leaks_no_part_of_either_url() {
     );
     for marker in ["leakuser", "leakpw", "leakdb", "rouser", "ropw", "rodb"] {
         assert!(!out.contains(marker), "{marker} leaked in {out}");
+    }
+}
+
+/// A reachable server that refuses the login quotes the user or the database
+/// name in its error; an unreachable one quotes neither, so it cannot catch a
+/// driver error passed through.
+#[tokio::test]
+async fn refused_login_leaks_no_part_of_the_url() {
+    let admin = PgConnectOptions::from_str(&common::database_url()).unwrap();
+    let authority = format!("{}:{}", admin.get_host(), admin.get_port());
+    let unknown_database = format!("leakdb_{}", uuid::Uuid::new_v4().simple());
+    for url in [
+        format!("postgres://leakuser:leakpw-5@{authority}/leakdb"),
+        common::url_with_database(&common::database_url(), &unknown_database),
+    ] {
+        let out = refused(&[("DATABASE_URL", &url), ("RUST_LOG", "trace")]).await;
+        assert!(
+            out.contains("error: cannot connect to the database named by DATABASE_URL"),
+            "{out}"
+        );
+        for marker in ["leakuser", "leakpw", "leakdb"] {
+            assert!(!out.contains(marker), "{marker} leaked in {out}");
+        }
     }
 }
 
