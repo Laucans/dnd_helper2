@@ -1,0 +1,3 @@
+# A migration's checksum is taken over its raw bytes: checkout must never
+# rewrite its line endings.
+crates/**/migrations/*.sql -text

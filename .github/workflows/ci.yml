@@ -38,10 +38,10 @@ jobs:
           --health-retries 10
     env:
       CARGO_TERM_COLOR: always
-      # One role in CI; a project that tests its read-only role creates it
-      # in a step of its own.
+      # The migrating role. DATABASE_URL_READONLY is not set here: the
+      # "Provision the read-only login" step writes it to $GITHUB_ENV, and a
+      # job-level value would shadow it.
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/app
-      DATABASE_URL_READONLY: postgres://postgres:postgres@localhost:5432/app
     steps:
       - uses: actions/checkout@v4
       - name: Toolchain (rust-toolchain.toml)
@@ -49,6 +49,25 @@ jobs:
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         if: hashFiles('Cargo.toml') != ''
+      # The read-only role (app_lecture) gets a login with a random password,
+      # never committed; the role itself is the one migration 0004 creates.
+      - name: Provision the read-only login
+        if: hashFiles('Cargo.toml') != ''
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          pw=$(openssl rand -hex 24)
+          echo "::add-mask::$pw"
+          psql -h localhost -U postgres -d app -v ON_ERROR_STOP=1 -v pw="$pw" <<'SQL'
+          DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_lecture') THEN
+              CREATE ROLE app_lecture NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+            END IF;
+          END $$;
+          ALTER ROLE app_lecture LOGIN PASSWORD :'pw';
+          SQL
+          echo "DATABASE_URL_READONLY=postgres://app_lecture:${pw}@localhost:5432/app" >> "$GITHUB_ENV"
       - name: Format
         if: hashFiles('Cargo.toml') != ''
         run: cargo fmt --all -- --check
