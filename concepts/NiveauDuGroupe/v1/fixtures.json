@@ -1,0 +1,129 @@
+{
+  "concept": "NiveauDuGroupe",
+  "version": 1,
+  "about": "Conformance fixtures for NiveauDuGroupe@1. All data is invented. Each case has a unique kebab-case name, a kind, an input and an expected result. A 'formula' case feeds input.levels straight to the computation, which must return expected. A 'seeded' case is a set of rows (campaignId, archived, level) to load into the read views, plus input.campaignUnderTest: its expected result is that of the active (archived = false) rows of campaignUnderTest only, because filtering is the views' job and not the computation's. campaignId values are symbolic labels that the seeding slice maps to real ids; rows carry only campaign, archived flag and level, so the seeding slice invents any other column (name, class) it needs. expected compares level and pcCount only: model and asOf are checked for presence and type, never for value. Every expected value equals (2*sum + n) / (2*n) in integer division, and level is null if and only if pcCount is 0.",
+  "cases": [
+    {
+      "name": "empty-party-has-no-level",
+      "kind": "formula",
+      "input": { "levels": [] },
+      "expected": { "level": null, "pcCount": 0 }
+    },
+    {
+      "name": "one-pc-gives-its-own-level",
+      "kind": "formula",
+      "input": { "levels": [5] },
+      "expected": { "level": 5, "pcCount": 1 }
+    },
+    {
+      "name": "exact-mean-mixed-levels",
+      "kind": "formula",
+      "input": { "levels": [3, 5] },
+      "expected": { "level": 4, "pcCount": 2 }
+    },
+    {
+      "name": "exact-mean-equal-levels",
+      "kind": "formula",
+      "input": { "levels": [4, 4, 4] },
+      "expected": { "level": 4, "pcCount": 3 }
+    },
+    {
+      "name": "half-mean-rounds-up",
+      "kind": "formula",
+      "input": { "levels": [3, 4] },
+      "expected": { "level": 4, "pcCount": 2 }
+    },
+    {
+      "name": "half-mean-rounds-up-not-to-even",
+      "kind": "formula",
+      "input": { "levels": [2, 3] },
+      "expected": { "level": 3, "pcCount": 2 }
+    },
+    {
+      "name": "half-mean-rounds-up-not-to-even-odd-upper",
+      "kind": "formula",
+      "input": { "levels": [4, 5] },
+      "expected": { "level": 5, "pcCount": 2 }
+    },
+    {
+      "name": "third-above-integer-rounds-down",
+      "kind": "formula",
+      "input": { "levels": [1, 1, 2] },
+      "expected": { "level": 1, "pcCount": 3 }
+    },
+    {
+      "name": "just-under-half-rounds-down",
+      "kind": "formula",
+      "input": { "levels": [1, 1, 1, 2, 2] },
+      "expected": { "level": 1, "pcCount": 5 }
+    },
+    {
+      "name": "closer-under-half-rounds-down",
+      "kind": "formula",
+      "input": { "levels": [1, 1, 1, 1, 2, 2, 2] },
+      "expected": { "level": 1, "pcCount": 7 }
+    },
+    {
+      "name": "bound-level-1",
+      "kind": "formula",
+      "input": { "levels": [1] },
+      "expected": { "level": 1, "pcCount": 1 }
+    },
+    {
+      "name": "bound-level-20",
+      "kind": "formula",
+      "input": { "levels": [20] },
+      "expected": { "level": 20, "pcCount": 1 }
+    },
+    {
+      "name": "twenty-pcs-at-level-20",
+      "kind": "formula",
+      "input": { "levels": [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20] },
+      "expected": { "level": 20, "pcCount": 20 }
+    },
+    {
+      "name": "upper-tie-never-exceeds-20",
+      "kind": "formula",
+      "input": { "levels": [19, 20] },
+      "expected": { "level": 20, "pcCount": 2 }
+    },
+    {
+      "name": "lower-tie-rounds-up-to-2",
+      "kind": "formula",
+      "input": { "levels": [1, 2] },
+      "expected": { "level": 2, "pcCount": 2 }
+    },
+    {
+      "name": "order-does-not-matter",
+      "kind": "formula",
+      "input": { "levels": [4, 3] },
+      "expected": { "level": 4, "pcCount": 2 }
+    },
+    {
+      "name": "archived-pc-excluded",
+      "kind": "seeded",
+      "input": {
+        "campaignUnderTest": "campagne-alpha",
+        "seed": [
+          { "campaignId": "campagne-alpha", "archived": false, "level": 3 },
+          { "campaignId": "campagne-alpha", "archived": false, "level": 3 },
+          { "campaignId": "campagne-alpha", "archived": true, "level": 9 }
+        ]
+      },
+      "expected": { "level": 3, "pcCount": 2 }
+    },
+    {
+      "name": "other-campaign-pc-excluded",
+      "kind": "seeded",
+      "input": {
+        "campaignUnderTest": "campagne-alpha",
+        "seed": [
+          { "campaignId": "campagne-alpha", "archived": false, "level": 4 },
+          { "campaignId": "campagne-alpha", "archived": false, "level": 6 },
+          { "campaignId": "campagne-beta", "archived": false, "level": 20 }
+        ]
+      },
+      "expected": { "level": 5, "pcCount": 2 }
+    }
+  ]
+}
