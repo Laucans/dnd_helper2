@@ -1,0 +1,24 @@
+[package]
+name = "campagne-lister-campagnes"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+name = "lister_campagnes"
+path = "src/lib.rs"
+
+[dependencies]
+campagne-persisted-query = { path = "../../persisted-query" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+jsonschema.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+tokio.workspace = true
+uuid.workspace = true
