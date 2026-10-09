@@ -202,10 +202,11 @@ async fn serves_health_on_loopback_and_second_start_changes_nothing() {
 }
 
 /// `run` hands the engine `startup::registry`, not an empty one: the binary
-/// itself enqueues each of the three mutations. Unknown ids are enough here,
-/// since a target's activity is checked only when the command applies.
+/// itself enqueues each of its four commands. Unknown ids are enough for the
+/// mutations, since a target's activity is checked only when the command
+/// applies; the create has no target at all.
 #[tokio::test]
-async fn the_shipped_binary_accepts_the_three_mutations() {
+async fn the_shipped_binary_accepts_the_four_commands() {
     let db = TestDb::create().await;
     let port = free_port().await;
     let port_s = port.to_string();
@@ -219,6 +220,11 @@ async fn the_shipped_binary_accepts_the_three_mutations() {
 
     let id = uuid::Uuid::new_v4();
     for submission in [
+        serde_json::json!({
+            "dataCapability": "campagne.creerCampagne@1",
+            "payload": { "name": "Les Brumes" },
+            "idempotencyKey": "binaire-creer-campagne",
+        }),
         serde_json::json!({
             "dataCapability": "campagne.modifierPJ@1",
             "target": { "id": id },

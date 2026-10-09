@@ -101,9 +101,14 @@ fn ysolde(level: Value) -> Value {
 /// The registry the server ships. `Registry` has no length, so "only these"
 /// is checked on the commands that must never ship: the test ones.
 #[test]
-fn the_server_registers_the_three_mutations_and_no_test_command() {
+fn the_server_registers_the_four_commands_and_no_test_command() {
     let r = startup::registry(&Aggregates::embedded().unwrap()).unwrap();
-    for key in [modifier_pj::KEY, archiver_pj::KEY, archiver_campagne::KEY] {
+    for key in [
+        creer_campagne::KEY,
+        modifier_pj::KEY,
+        archiver_pj::KEY,
+        archiver_campagne::KEY,
+    ] {
         assert!(r.get(key).is_some(), "{key}");
     }
     for key in [
