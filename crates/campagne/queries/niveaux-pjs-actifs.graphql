@@ -1,0 +1,4 @@
+query NiveauxPjsActifs($campagneId: ID!) @capability(id: "campagne.niveauDuGroupe") {
+  levels(campagneId: $campagneId)
+  dataVersion
+}
