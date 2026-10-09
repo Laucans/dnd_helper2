@@ -17,15 +17,18 @@ applier (`crates/dataguard`) and one `LISTEN data_version` connection.
 The body of a submission is
 `{dataCapability: "<system>.<name>@<version>", target?: {id}, payload, basedOn?: {version, values?}, idempotencyKey?}`.
 A `by` in it is ignored: every command is the GM's (`mj-local`). This server
-registers four DataCapabilities: `campagne.creerCampagne@1` (payload
-`{name}`, no `target`: the campaign's id is minted, and is the part of the
-answer's `partition` after `Campagne/`), `campagne.modifierPJ@1` (payload
-`{nom, classe, niveau}`, all three, with `basedOn`), `campagne.archiverPJ@1`
-and `campagne.archiverCampagne@1` (empty payload); each needs an
-`idempotencyKey`, and all but the first take their row id in `target.id`.
-A key replayed with the same payload answers the first command; with another
-payload it is refused (`idempotency-key-conflict`), so a create rejected for
-its name is retried under a new key. Any other is an `unknown-capability`.
+registers five DataCapabilities: `campagne.ajouterPj@1` (payload
+`{campagneId, nom, classe, niveau}`, all four, no `target`: the new PC's id is
+minted by the server and is the `PJ/<id>` of the answer's `partition`),
+`campagne.creerCampagne@1` (payload `{name}`, no `target`: the campaign's id is
+minted, and is the part of the answer's `partition` after `Campagne/`),
+`campagne.modifierPJ@1` (payload `{nom, classe, niveau}`, all three, with
+`basedOn`), `campagne.archiverPJ@1` and `campagne.archiverCampagne@1` (empty
+payload); each needs an `idempotencyKey`, and the last three take their row id
+in `target.id`. A key replayed with the same payload answers the first
+command; with another payload it is refused (`idempotency-key-conflict`), so a
+create or an add rejected for its name is retried under a new key. Any other is
+an `unknown-capability`.
 
 ## Environment
 

@@ -15,6 +15,7 @@ name = "campagne-serveur"
 path = "src/main.rs"
 
 [dependencies]
+ajouter-pj = { path = "../../dataguard/data-capabilities/ajouter-pj" }
 archiver-campagne = { path = "../../dataguard/data-capabilities/archiver-campagne" }
 archiver-pj = { path = "../../dataguard/data-capabilities/archiver-pj" }
 axum.workspace = true
