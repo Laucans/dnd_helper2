@@ -1,5 +1,6 @@
 //! The server binary end to end: configuration refusals that leak nothing,
-//! loopback health, a second start that changes nothing, and a port in use.
+//! loopback health, a second start that changes nothing, a port in use, and
+//! the DataCapabilities the binary accepts.
 
 mod common;
 
@@ -61,6 +62,19 @@ async fn health(port: u16) -> Option<String> {
     let mut response = String::new();
     stream.read_to_string(&mut response).await.ok()?;
     Some(response)
+}
+
+/// `POST /commands` over a bare socket; the whole response, head and body.
+async fn post_command(port: u16, body: &str) -> String {
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+    let request = format!(
+        "POST /commands HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    stream.write_all(request.as_bytes()).await.unwrap();
+    let mut response = String::new();
+    stream.read_to_string(&mut response).await.unwrap();
+    response
 }
 
 async fn wait_healthy(child: &mut Child, port: u16) {
@@ -184,6 +198,54 @@ async fn serves_health_on_loopback_and_second_start_changes_nothing() {
         .unwrap();
     assert!(status.success(), "exit status {status}");
     assert_eq!(bookkeeping(&db).await, before);
+    db.drop_db().await;
+}
+
+/// `run` hands the engine `startup::registry`, not an empty one: the binary
+/// itself enqueues each of the three mutations. Unknown ids are enough here,
+/// since a target's activity is checked only when the command applies.
+#[tokio::test]
+async fn the_shipped_binary_accepts_the_three_mutations() {
+    let db = TestDb::create().await;
+    let port = free_port().await;
+    let port_s = port.to_string();
+    let mut child = server(&[
+        ("DATABASE_URL", db.url.as_str()),
+        ("SERVER_PORT", port_s.as_str()),
+    ])
+    .spawn()
+    .unwrap();
+    wait_healthy(&mut child, port).await;
+
+    let id = uuid::Uuid::new_v4();
+    for submission in [
+        serde_json::json!({
+            "dataCapability": "campagne.modifierPJ@1",
+            "target": { "id": id },
+            "payload": { "nom": "Ysolde", "classe": "Barde", "niveau": 5 },
+            "basedOn": { "version": 0 },
+            "idempotencyKey": "binaire-modifier",
+        }),
+        serde_json::json!({
+            "dataCapability": "campagne.archiverPJ@1",
+            "target": { "id": id },
+            "idempotencyKey": "binaire-archiver-pj",
+        }),
+        serde_json::json!({
+            "dataCapability": "campagne.archiverCampagne@1",
+            "target": { "id": id },
+            "idempotencyKey": "binaire-archiver-campagne",
+        }),
+    ] {
+        let response = post_command(port, &submission.to_string()).await;
+        assert!(
+            response.starts_with("HTTP/1.1 202"),
+            "{}: {response}",
+            submission["dataCapability"]
+        );
+    }
+
+    child.kill().await.unwrap();
     db.drop_db().await;
 }
 
