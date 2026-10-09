@@ -78,6 +78,27 @@ describe('viewOf', () => {
     expect(JSON.stringify(v.rows)).not.toContain('9');
   });
 
+  it('shows whatever JSON the queue declared: a scalar as one line, an unknown key as itself, never a property of the label table', async () => {
+    const { shell, ctrl } = loaded();
+    ctrl.openEdit('p1');
+    const view = pendingView('c1', 'awaiting_confirmation', {
+      yourValue: 42,
+      actions: ['cancel'],
+      projection: { pendingAhead: [{ value: { name: 'Aria', constructor: 'x', toString: 3, note: { k: 1 } } }] },
+    });
+    shell.submitQueue.push(submitted(view, 'c1'));
+    void ctrl.submitEdit();
+    await flush();
+    const awaiting = viewOf(ctrl.getState()).edit?.awaiting;
+    expect(awaiting?.yourValue).toEqual([{ label: '', text: '42' }]);
+    expect(awaiting?.ahead).toEqual([
+      { label: 'Nom', text: 'Aria' },
+      { label: 'constructor', text: 'x' },
+      { label: 'toString', text: '3' },
+      { label: 'note', text: '{"k":1}' },
+    ]);
+  });
+
   it('shows an expired edit with no confirm and a notice', async () => {
     const { shell, ctrl } = loaded();
     ctrl.openEdit('p1');
