@@ -409,8 +409,7 @@ async fn an_infrastructure_failure_rolls_back_and_the_command_waits_its_turn() {
         .execute(&h.db.pool)
         .await
         .unwrap();
-    // The failing partition is retried after its backoff.
-    h.clock.advance(Duration::from_secs(1));
+    // Once the failure clears, it applies first, in its turn.
     assert_eq!(applier.drain().await.unwrap(), 2);
     assert_eq!(
         h.result(add.command_id).await.data_version,
@@ -423,34 +422,59 @@ async fn an_infrastructure_failure_rolls_back_and_the_command_waits_its_turn() {
     h.drop_db().await;
 }
 
-/// A command that keeps failing blocks its own partition, visibly, and never
-/// the others.
+/// A failing head stays the head: nothing enqueued after it applies first,
+/// whatever its partition (rules 25 and 28). Two adds with the same name, A
+/// then B, apply A then reject B once the failure clears, never the reverse.
 #[tokio::test]
-async fn a_poisoned_partition_does_not_stall_the_others() {
+async fn a_failing_head_lets_nothing_enqueued_after_it_apply_first() {
     let h = Harness::new().await;
     let mut applier = h.applier().await;
     let c = h.campaign(&mut applier, "Les Brumes").await;
     sqlx::raw_sql(
         "CREATE FUNCTION panne() RETURNS trigger LANGUAGE plpgsql AS
-           $$ BEGIN IF NEW.nom = 'Poison' THEN RAISE EXCEPTION 'panne'; END IF; RETURN NEW; END $$;
+           $$ BEGIN IF NEW.nom = 'Ysolde' THEN RAISE EXCEPTION 'panne'; END IF; RETURN NEW; END $$;
          CREATE TRIGGER panne BEFORE INSERT ON pj FOR EACH ROW EXECUTE FUNCTION panne();",
     )
     .execute(&h.db.pool)
     .await
     .unwrap();
-    let poison = h.add_pc(c, "Poison", json!(3)).await;
-    let other = h.add_pc(c, "Brume", json!(3)).await;
+    let version = h.version().await;
+    let first = h.add_pc(c, "Ysolde", json!(3)).await;
+    let second = h.add_pc(c, "Ysolde", json!(4)).await;
+    let elsewhere = h
+        .submit(json!({
+            "dataCapability": CREER_CAMPAGNE,
+            "payload": { "name": "Ailleurs" },
+            "idempotencyKey": Uuid::new_v4().to_string(),
+        }))
+        .await;
+    assert_ne!(first.partition, second.partition);
 
+    // Retried, it fails again; no later command overtakes it.
     assert!(applier.apply_next().await.is_err());
-    assert_eq!(applier.apply_next().await.unwrap(), Some(other.command_id));
-    assert_eq!(applier.apply_next().await.unwrap(), None);
-    assert_eq!(h.result(other.command_id).await.status, State::Applied);
-    assert_eq!(h.state(poison.command_id).await, State::Queued);
-
-    // Retried after its backoff, it fails again and stays at its position.
     h.clock.advance(Duration::from_secs(1));
     assert!(applier.apply_next().await.is_err());
-    assert_eq!(h.state(poison.command_id).await, State::Queued);
+    for s in [&first, &second, &elsewhere] {
+        assert_eq!(h.state(s.command_id).await, State::Queued);
+    }
+    assert_eq!(h.version().await, version);
+
+    sqlx::raw_sql("DROP TRIGGER panne ON pj")
+        .execute(&h.db.pool)
+        .await
+        .unwrap();
+    assert_eq!(applier.drain().await.unwrap(), 3);
+    assert_eq!(
+        h.result(first.command_id).await.data_version,
+        Some(version + 1)
+    );
+    let rejected = h.result(second.command_id).await;
+    assert_eq!(rejected.status, State::Rejected);
+    assert_eq!(rejected.violations, ["pc-name-unique-in-campaign"]);
+    assert_eq!(
+        h.result(elsewhere.command_id).await.data_version,
+        Some(version + 2)
+    );
     h.drop_db().await;
 }
 

@@ -38,17 +38,12 @@ const BACKOFF: Duration = Duration::from_secs(1);
 pub struct Applier {
     inner: Arc<Inner>,
     conn: PgConnection,
-    /// Partitions whose head just failed, and when to try them again. A
-    /// command that keeps failing blocks its own partition, visibly, and
-    /// never the others.
-    blocked: Vec<(String, DateTime<Utc>)>,
 }
 
 /// The ready head of every partition — its lowest position among the
 /// commands still to apply — and of those, the first enqueued.
-const HEAD: &str = "SELECT q.command, q.partition FROM dataguard_queue q
+const HEAD: &str = "SELECT q.command FROM dataguard_queue q
   WHERE q.state = ANY($1)
-    AND NOT (q.partition = ANY($2))
     AND NOT EXISTS (
       SELECT 1 FROM dataguard_queue p
       WHERE p.partition = q.partition AND p.state = ANY($1) AND p.position < q.position)
@@ -78,25 +73,20 @@ impl Applier {
             let _ = conn.close().await;
             return Ok(None);
         }
-        Ok(Some(Self {
-            inner,
-            conn,
-            blocked: Vec::new(),
-        }))
+        Ok(Some(Self { inner, conn }))
     }
 
     /// Applies, rejects or parks the next ready head, in one transaction.
     /// `None` when no command is ready. On an error the transaction is rolled
-    /// back before returning, so no lock outlives a failed apply, and the
-    /// head's partition is set aside for [`BACKOFF`] on the engine's clock.
+    /// back before returning, so no lock outlives a failed apply. The failed
+    /// head stays the head: nothing enqueued after it applies first (rules 25
+    /// and 28), and a command that keeps failing stops the applier, visibly,
+    /// until a human acts.
     pub async fn apply_next(&mut self) -> Result<Option<CommandId>, EngineError> {
         let inner = self.inner.clone();
-        let now = inner.clock.now();
-        self.blocked.retain(|(_, until)| *until > now);
-        let blocked: Vec<String> = self.blocked.iter().map(|(p, _)| p.clone()).collect();
         loop {
             let mut tx = self.conn.begin().await?;
-            match step(&inner, &mut tx, &blocked).await {
+            match step(&inner, &mut tx).await {
                 Ok(Step::Idle) => {
                     tx.commit().await?;
                     return Ok(None);
@@ -106,12 +96,8 @@ impl Applier {
                     tx.commit().await?;
                     return Ok(Some(CommandId(command)));
                 }
-                Err((partition, e)) => {
+                Err(e) => {
                     let _ = tx.rollback().await;
-                    if let Some(partition) = partition {
-                        let backoff = chrono::Duration::from_std(BACKOFF).expect("1 s");
-                        self.blocked.push((partition, now + backoff));
-                    }
                     return Err(e);
                 }
             }
@@ -127,24 +113,15 @@ enum Step {
     Settled(Uuid),
 }
 
-/// The error carries the head's partition once there is a head.
-async fn step(
-    inner: &Inner,
-    conn: &mut PgConnection,
-    blocked: &[String],
-) -> Result<Step, (Option<String>, EngineError)> {
-    let head: Option<(Uuid, String)> = sqlx::query_as(HEAD)
+async fn step(inner: &Inner, conn: &mut PgConnection) -> Result<Step, EngineError> {
+    let head: Option<Uuid> = sqlx::query_scalar(HEAD)
         .bind(PENDING)
-        .bind(blocked)
         .fetch_optional(&mut *conn)
-        .await
-        .map_err(|e| (None, e.into()))?;
-    let Some((command, partition)) = head else {
+        .await?;
+    let Some(command) = head else {
         return Ok(Step::Idle);
     };
-    settle_head(inner, conn, command)
-        .await
-        .map_err(|e| (Some(partition), e))
+    settle_head(inner, conn, command).await
 }
 
 async fn settle_head(
@@ -348,7 +325,6 @@ impl Applier {
     pub async fn run(mut self, shutdown: impl Future<Output = ()>) {
         tokio::pin!(shutdown);
         loop {
-            let blocked = self.blocked.len();
             let pause = match self.drain().await {
                 Ok(_) => POLL,
                 Err(e) => {
@@ -357,12 +333,7 @@ impl Applier {
                         warn!("applier: connection lost");
                         return;
                     }
-                    // A partition was set aside: the others go on at once.
-                    if self.blocked.len() > blocked {
-                        Duration::ZERO
-                    } else {
-                        BACKOFF
-                    }
+                    BACKOFF
                 }
             };
             tokio::select! {
