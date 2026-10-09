@@ -37,7 +37,12 @@ interface Entry {
   capability: string;
   variables: JsonObject;
   listeners: Set<(e: WatchEvent<unknown>) => void>;
+  /** The last data or not-found; what a late watcher is given. */
   last: WatchEvent<unknown> | undefined;
+  /** The `asOf` of `last`, when it is data that carried one. */
+  freshAsOf: number | null;
+  /** The last error or stale event, until a read succeeds. */
+  problem: WatchEvent<unknown> | undefined;
   inflight: boolean;
   dirty: boolean;
   /** The version the next presented data must be at least (the known one when scheduled). */
@@ -60,7 +65,9 @@ export class Reads {
   private flushTimer: unknown = null;
 
   constructor(private readonly deps: ReadsDeps) {
-    deps.hub.onRefetch(() => this.markAllDirty());
+    deps.hub.onRefetch((force) => {
+      this.markAllDirty(force);
+    });
   }
 
   async read<T>(capability: string, variables: JsonObject = {}, opts?: { signal?: AbortSignal }): Promise<ReadOutcome<T>> {
@@ -86,9 +93,12 @@ export class Reads {
     if (entry === undefined) {
       entry = {
         capability,
-        variables,
+        // A copy: the caller may keep mutating its own object, and the key was computed from this one.
+        variables: structuredClone(variables),
         listeners: new Set(),
         last: undefined,
+        freshAsOf: null,
+        problem: undefined,
         inflight: false,
         dirty: false,
         wanted: null,
@@ -99,8 +109,16 @@ export class Reads {
     const wrapped = listener as (e: WatchEvent<unknown>) => void;
     entry.listeners.add(wrapped);
     const release = this.deps.hub.retain();
-    if (fresh) this.markDirty(entry);
-    else if (entry.last !== undefined) this.emitTo(wrapped, entry.last);
+    if (fresh) {
+      this.markDirty(entry, true);
+    } else {
+      if (entry.last !== undefined) this.emitTo(wrapped, entry.last);
+      if (entry.problem !== undefined) {
+        // A failed or stale read is shown, then tried again for the new watcher.
+        this.emitTo(wrapped, entry.problem);
+        this.markDirty(entry, true);
+      }
+    }
 
     const owner = entry;
     let done = false;
@@ -126,14 +144,22 @@ export class Reads {
     this.entries.clear();
   }
 
-  private markAllDirty(): void {
-    for (const entry of this.entries.values()) this.markDirty(entry);
+  private markAllDirty(force: boolean): void {
+    for (const entry of this.entries.values()) this.markDirty(entry, force);
   }
 
-  /** Every bump in one tick lands in a single flush, at the latest version. */
-  private markDirty(entry: Entry): void {
+  /**
+   * Every bump in one tick lands in a single flush, at the latest version. A
+   * bump the entry's data already covers (its `asOf` is at or above the known
+   * version) is skipped; a forced refetch never is.
+   */
+  private markDirty(entry: Entry, force: boolean): void {
+    const known = this.deps.hub.knownVersion();
+    if (!force && !entry.dirty && entry.problem === undefined && entry.freshAsOf !== null && known !== null && entry.freshAsOf >= known) {
+      return;
+    }
     entry.dirty = true;
-    entry.wanted = this.deps.hub.knownVersion();
+    entry.wanted = known;
     if (this.flushTimer !== null) return;
     this.flushTimer = this.deps.timers.setTimeout(() => {
       this.flushTimer = null;
@@ -154,14 +180,22 @@ export class Reads {
         if (event.kind === 'data') {
           satisfied = event.asOf;
           entry.last = event;
+          entry.freshAsOf = event.asOf;
+          entry.problem = undefined;
         } else if (event.kind === 'not-found') {
           entry.last = event;
+          entry.freshAsOf = null;
+          entry.problem = undefined;
+        } else {
+          entry.problem = event;
         }
         this.emit(entry, event);
       }
     } catch (e) {
       if (e instanceof TransportError || e instanceof ProtocolError) {
-        this.emit(entry, { kind: 'error', error: e });
+        const event: WatchEvent<unknown> = { kind: 'error', error: e };
+        entry.problem = event;
+        this.emit(entry, event);
       } else if (!(e instanceof ClientDisposedError) && !entry.abort.signal.aborted) {
         this.deps.diagnostic({ kind: 'read-failed' });
       }
@@ -172,9 +206,7 @@ export class Reads {
     if (entry.dirty && satisfied !== null && entry.wanted !== null && satisfied >= entry.wanted) {
       entry.dirty = false;
     }
-    if (entry.dirty && !entry.abort.signal.aborted && this.entries.size > 0) {
-      this.markDirty(entry);
-    }
+    if (entry.dirty && !entry.abort.signal.aborted) this.markDirty(entry, true);
   }
 
   /** Never presents data older than `floor` as fresh (rule 48). `null`: the entry is gone. */

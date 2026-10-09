@@ -54,6 +54,20 @@ describe('base URL (rule 10)', () => {
     expect(assertLoopbackBaseUrl(url)).toBe(normalised);
   });
 
+  it('never puts userinfo in the error', () => {
+    const err = (() => {
+      try {
+        assertLoopbackBaseUrl('https://user:hunter2@remote.example/path?token=abc');
+      } catch (e) {
+        return e as NonLoopbackBaseUrlError;
+      }
+      throw new Error('expected a refusal');
+    })();
+    expect(err.baseUrl).toBe('https://remote.example');
+    expect(`${err.message} ${err.baseUrl}`).not.toMatch(/hunter2|user|token/);
+    expect(() => assertLoopbackBaseUrl('::: hunter2')).toThrow('(unparsable)');
+  });
+
   it('is refused at construction, with no call', () => {
     const fetch = new FakeFetch();
     const sources = fakeEventSourceFactory();
