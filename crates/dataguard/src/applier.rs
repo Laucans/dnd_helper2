@@ -38,12 +38,19 @@ const BACKOFF: Duration = Duration::from_secs(1);
 pub struct Applier {
     inner: Arc<Inner>,
     conn: PgConnection,
+    /// Scopes whose head just failed, and when to try them again. A failing
+    /// command holds back every command of its scope, the rows its invariants
+    /// and staleness read, so nothing it must precede applies first; the
+    /// other scopes go on.
+    set_aside: Vec<(String, DateTime<Utc>)>,
 }
 
 /// The ready head of every partition — its lowest position among the
-/// commands still to apply — and of those, the first enqueued.
-const HEAD: &str = "SELECT q.command FROM dataguard_queue q
+/// commands still to apply — and of those, outside the scopes set aside, the
+/// first enqueued.
+const HEAD: &str = "SELECT q.command, q.scope FROM dataguard_queue q
   WHERE q.state = ANY($1)
+    AND NOT (q.scope = ANY($2))
     AND NOT EXISTS (
       SELECT 1 FROM dataguard_queue p
       WHERE p.partition = q.partition AND p.state = ANY($1) AND p.position < q.position)
@@ -73,36 +80,71 @@ impl Applier {
             let _ = conn.close().await;
             return Ok(None);
         }
-        Ok(Some(Self { inner, conn }))
+        Ok(Some(Self {
+            inner,
+            conn,
+            set_aside: Vec::new(),
+        }))
     }
 
     /// Applies, rejects or parks the next ready head, in one transaction.
     /// `None` when no command is ready. On an error the transaction is rolled
-    /// back before returning, so no lock outlives a failed apply. The failed
-    /// head stays the head: nothing enqueued after it applies first (rules 25
-    /// and 28), and a command that keeps failing stops the applier, visibly,
-    /// until a human acts.
+    /// back before returning, so no lock outlives a failed apply, and the
+    /// head's scope is set aside for [`BACKOFF`] on the engine's clock. The
+    /// failed head stays the head of its scope: nothing of that scope applies
+    /// before it (rules 25 and 28), and a command that keeps failing blocks
+    /// its scope, visibly, until a human acts. Other campaigns go on.
     pub async fn apply_next(&mut self) -> Result<Option<CommandId>, EngineError> {
+        self.next().await.map_err(|f| f.error)
+    }
+
+    async fn next(&mut self) -> Result<Option<CommandId>, Failed> {
         let inner = self.inner.clone();
+        let now = inner.clock.now();
+        self.set_aside.retain(|(_, until)| *until > now);
+        let set_aside: Vec<String> = self.set_aside.iter().map(|(s, _)| s.clone()).collect();
         loop {
-            let mut tx = self.conn.begin().await?;
-            match step(&inner, &mut tx).await {
+            let mut tx = self.conn.begin().await.map_err(Failed::unattributed)?;
+            match step(&inner, &mut tx, &set_aside).await {
                 Ok(Step::Idle) => {
-                    tx.commit().await?;
+                    tx.commit().await.map_err(Failed::unattributed)?;
                     return Ok(None);
                 }
-                Ok(Step::Raced) => tx.rollback().await?,
+                Ok(Step::Raced) => tx.rollback().await.map_err(Failed::unattributed)?,
                 Ok(Step::Settled(command)) => {
-                    tx.commit().await?;
+                    tx.commit().await.map_err(Failed::unattributed)?;
                     return Ok(Some(CommandId(command)));
                 }
-                Err(e) => {
+                Err((scope, error)) => {
                     let _ = tx.rollback().await;
-                    return Err(e);
+                    let set_aside = scope.is_some();
+                    if let Some(scope) = scope {
+                        self.set_aside.push((scope, now + backoff()));
+                    }
+                    return Err(Failed { error, set_aside });
                 }
             }
         }
     }
+}
+
+/// A failed apply, and whether it set its head's scope aside.
+struct Failed {
+    error: EngineError,
+    set_aside: bool,
+}
+
+impl Failed {
+    fn unattributed(e: impl Into<EngineError>) -> Self {
+        Self {
+            error: e.into(),
+            set_aside: false,
+        }
+    }
+}
+
+fn backoff() -> chrono::Duration {
+    chrono::Duration::from_std(BACKOFF).unwrap_or_else(|_| chrono::Duration::seconds(1))
 }
 
 enum Step {
@@ -113,15 +155,24 @@ enum Step {
     Settled(Uuid),
 }
 
-async fn step(inner: &Inner, conn: &mut PgConnection) -> Result<Step, EngineError> {
-    let head: Option<Uuid> = sqlx::query_scalar(HEAD)
+/// The error carries the head's scope once there is a head.
+async fn step(
+    inner: &Inner,
+    conn: &mut PgConnection,
+    set_aside: &[String],
+) -> Result<Step, (Option<String>, EngineError)> {
+    let head: Option<(Uuid, String)> = sqlx::query_as(HEAD)
         .bind(PENDING)
+        .bind(set_aside)
         .fetch_optional(&mut *conn)
-        .await?;
-    let Some(command) = head else {
+        .await
+        .map_err(|e| (None, e.into()))?;
+    let Some((command, scope)) = head else {
         return Ok(Step::Idle);
     };
-    settle_head(inner, conn, command).await
+    settle_head(inner, conn, command)
+        .await
+        .map_err(|e| (Some(scope), e))
 }
 
 async fn settle_head(
@@ -311,9 +362,15 @@ async fn settle(inner: &Inner, conn: &mut PgConnection, head: Head) -> Result<()
 impl Applier {
     /// Expires what is due, then applies until no command is ready.
     pub async fn drain(&mut self) -> Result<usize, EngineError> {
-        queue::expire_due(&self.inner).await?;
+        self.drain_or_fail().await.map_err(|f| f.error)
+    }
+
+    async fn drain_or_fail(&mut self) -> Result<usize, Failed> {
+        queue::expire_due(&self.inner)
+            .await
+            .map_err(Failed::unattributed)?;
         let mut n = 0;
-        while self.apply_next().await?.is_some() {
+        while self.next().await?.is_some() {
             n += 1;
         }
         Ok(n)
@@ -325,15 +382,20 @@ impl Applier {
     pub async fn run(mut self, shutdown: impl Future<Output = ()>) {
         tokio::pin!(shutdown);
         loop {
-            let pause = match self.drain().await {
+            let pause = match self.drain_or_fail().await {
                 Ok(_) => POLL,
-                Err(e) => {
-                    warn!(error = %e, "applier: command left in place, retrying");
+                Err(failed) => {
+                    warn!(error = %failed.error, "applier: command left in place, retrying");
                     if self.conn.ping().await.is_err() {
                         warn!("applier: connection lost");
                         return;
                     }
-                    BACKOFF
+                    // Its scope is set aside: the other scopes go on at once.
+                    if failed.set_aside {
+                        Duration::ZERO
+                    } else {
+                        BACKOFF
+                    }
                 }
             };
             tokio::select! {
