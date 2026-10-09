@@ -42,7 +42,8 @@ else, so it imports no Capability, DataCapability or Data-layer code.
 | PCs | the level, « n PJ » |
 | no active PC (`level === null`) | « Pas de niveau de groupe », « 0 PJ » |
 | failed read, a value is known | that value, with « peut-être pas à jour » |
-| failed read, no value | « Niveau du groupe indisponible » |
+| failed read, no value | « Niveau du groupe indisponible » (after a not-found answer the not-found state stays) |
+| the shell cannot start the read (disposed) | « Niveau du groupe indisponible »; nothing throws into the page |
 
 It never shows `0` where the level should be. It recovers by itself on the next
 `dataVersion` announcement.

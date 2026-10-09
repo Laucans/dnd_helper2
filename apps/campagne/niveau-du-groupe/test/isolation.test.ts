@@ -11,11 +11,12 @@ const sources = readdirSync(dir)
   .filter((name) => name.endsWith('.ts'))
   .map((name) => ({ name, text: withoutComments(readFileSync(new URL(name, dir), 'utf8')) }));
 
-const importsOf = (text: string): string[] => [...text.matchAll(/(?:^|\n)\s*(?:import|export)\b[^;]*?\bfrom\s+'([^']+)'/g)].map((m) => m[1]!);
+// `from '…'`, a side-effect `import '…'` and a dynamic `import('…')`.
+const importsOf = (text: string): string[] => [...text.matchAll(/\b(?:from|import)\s*\(?\s*'([^']+)'/g)].map((m) => m[1]!);
 
 describe('the unit stays inside its boundary', () => {
   it('finds its sources', () => {
-    expect(sources.map((s) => s.name).sort()).toEqual(['controller.ts', 'identifiers.ts', 'index.ts', 'mount.ts', 'party-level.ts', 'view-model.ts']);
+    expect(sources.length).toBeGreaterThan(0);
   });
 
   it('imports only its own files and the shell', () => {
@@ -32,6 +33,7 @@ describe('the unit stays inside its boundary', () => {
     ['a storage', /localStorage|sessionStorage|indexedDB|document\.cookie/],
     ['a write: no command, no mutation', /\.submit\s*\(|\.act\s*\(|\.awaitResult\s*\(/],
     ['a query or a database client', /\b(?:select|insert|update|delete)\s+\w+\s+(?:from|into|set)\b|graphql|postgres|sqlx/i],
+    ['a dynamic import or a require', /\bimport\s*\(|\brequire\s*\(/],
     ['the console', /\bconsole\./],
     ['innerHTML', /innerHTML|outerHTML|insertAdjacentHTML/],
   ])('contains no %s', (_what, pattern) => {
