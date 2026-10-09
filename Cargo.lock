@@ -234,6 +234,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "campagne-lister-pjs"
+version = "0.1.0"
+dependencies = [
+ "campagne-persisted-query",
+ "jsonschema",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "campagne-persisted-query"
 version = "0.1.0"
 dependencies = [
