@@ -33,6 +33,10 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+# The end-to-end proof reads through the three Capabilities, in-process.
+campagne-lister-campagnes = { path = "../capabilities/lister-campagnes" }
+campagne-lister-pjs = { path = "../capabilities/lister-pjs" }
+campagne-niveau-du-groupe = { path = "../capabilities/niveau-du-groupe" }
 chrono.workspace = true
 http-body-util.workspace = true
 jsonschema.workspace = true
