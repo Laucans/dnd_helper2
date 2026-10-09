@@ -1,0 +1,10 @@
+{
+  "screen": "campagne",
+  "generatedFrom": "Le MJ choisit une campagne, saisit à la main les PJ de ses joueurs et voit le niveau du groupe d'un coup d'œil.",
+  "version": 1,
+  "layout": [
+    { "Campagnes": { "campagneId": "$ctx.campagne" } },
+    { "Pjs": { "campagneId": "$ctx.campagne" } },
+    { "NiveauDuGroupe": { "campagneId": "$ctx.campagne" } }
+  ]
+}
