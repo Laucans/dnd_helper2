@@ -1,7 +1,8 @@
 {
   "version": 1,
   "heads": {
-    "main_agent": "f5375cfb5965f989991dbf571127c0037ed88cbf"
+    "main_agent": "f5375cfb5965f989991dbf571127c0037ed88cbf",
+    "milestone/3-campaign-knows-its-party-workspace-dataguard-foundation-manual-pcs-party-level": "898967de9f65481ec4a2ab01cd4b0481f07a769d"
   },
   "snapshots": [
     {
@@ -9,6 +10,14 @@
       "sha": "f5375cfb5965f989991dbf571127c0037ed88cbf",
       "at": "2026-10-09T21:52:33Z",
       "dir": "main_agent/20261009T215233Z-f5375cf",
+      "schema": true,
+      "model": false
+    },
+    {
+      "branch": "milestone/3-campaign-knows-its-party-workspace-dataguard-foundation-manual-pcs-party-level",
+      "sha": "898967de9f65481ec4a2ab01cd4b0481f07a769d",
+      "at": "2026-10-09T22:41:25Z",
+      "dir": "milestone/3-campaign-knows-its-party-workspace-dataguard-foundation-manual-pcs-party-level/20261009T224125Z-898967d",
       "schema": true,
       "model": false
     }
