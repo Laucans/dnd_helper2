@@ -224,6 +224,16 @@ describe('not found (rules 23, 25)', () => {
     host.emit(0, data(3, 1, 2));
     expect(controller.state()).toEqual(ready(3, 1, 2));
   });
+
+  it('a failed read afterwards does not turn it into another message', () => {
+    const { host, controller, changes } = setup();
+    host.emit(0, { kind: 'not-found' });
+    const before = changes.length;
+    host.emit(0, { kind: 'error', error: transportError() });
+    host.emit(0, { kind: 'stale', asOf: 1, wanted: 2 });
+    expect(controller.state()).toEqual({ kind: 'not-found' });
+    expect(changes).toHaveLength(before);
+  });
 });
 
 describe('a failed read (rule 24)', () => {
@@ -260,9 +270,37 @@ describe('a failed read (rule 24)', () => {
     host.emit(0, { kind: 'error', error: transportError() });
     host.emit(0, { kind: 'not-found' });
     host.emit(0, { kind: 'error', error: transportError() });
-    expect(controller.state()).toEqual({ kind: 'unavailable' });
+    expect(controller.state()).toEqual({ kind: 'not-found' }); // the value is gone, and the last known fact stands
     host.emit(0, data(5, 3, 7));
     expect(controller.state()).toEqual(ready(5, 3, 7));
+  });
+});
+
+describe('a host that cannot watch', () => {
+  it('shows unavailable and does not throw, whatever the reason', () => {
+    const host = new FakeHost();
+    host.onWatch = () => {
+      throw new Error('client disposed');
+    };
+    const changes: PartyLevelState[] = [];
+    const controller = new PartyLevelController(host, (s) => changes.push(s));
+    expect(() => {
+      controller.setCampagneId('A');
+    }).not.toThrow();
+    expect(controller.state()).toEqual({ kind: 'unavailable' });
+    expect(changes.map((s) => s.kind)).toEqual(['loading', 'unavailable']);
+  });
+
+  it('another campaign id is tried again', () => {
+    const host = new FakeHost();
+    host.onWatch = (call) => {
+      if (call.variables['campagneId'] === 'A') throw new Error('client disposed');
+    };
+    const controller = new PartyLevelController(host, () => undefined);
+    controller.setCampagneId('A');
+    controller.setCampagneId('B');
+    host.emit(1, data(4, 2, 3));
+    expect(controller.state()).toEqual(ready(4, 2, 3));
   });
 });
 

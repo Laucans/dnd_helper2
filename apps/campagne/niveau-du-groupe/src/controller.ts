@@ -57,9 +57,16 @@ export class PartyLevelController {
     this.set({ kind: 'loading' });
     // The generation is taken before `watch`: it may call the listener before it returns.
     const generation = this.generation;
-    const release = this.host.watch<unknown>(NIVEAU_DU_GROUPE, { campagneId: next }, (event) => {
-      this.receive(generation, event);
-    });
+    let release: Unsubscribe;
+    try {
+      release = this.host.watch<unknown>(NIVEAU_DU_GROUPE, { campagneId: next }, (event) => {
+        this.receive(generation, event);
+      });
+    } catch {
+      // A disposed shell, say: a failed read like any other (rule 24), and the page does not crash.
+      if (generation === this.generation) this.set({ kind: 'unavailable' });
+      return;
+    }
     if (generation === this.generation) this.release = release;
     else release();
   }
@@ -103,9 +110,14 @@ export class PartyLevelController {
     }
   }
 
-  /** Never `0` and never "no party level": either would claim a fact the view does not know. */
+  /**
+   * Never `0` and never "no party level": either would claim a fact the view does not know. A kept
+   * value is marked; "not found" stays (an archived campaign does not come back); otherwise unavailable.
+   */
   private fail(): void {
-    this.set(this.current.kind === 'ready' ? { ...this.current, possiblyStale: true } : { kind: 'unavailable' });
+    const current = this.current;
+    if (current.kind === 'ready') this.set({ ...current, possiblyStale: true });
+    else if (current.kind !== 'not-found') this.set({ kind: 'unavailable' });
   }
 
   private set(next: PartyLevelState): void {
