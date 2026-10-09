@@ -5,7 +5,8 @@
 //! The tombstone's value, the no-op on an already archived PC and the
 //! refusal of an unknown one are the DataGuard's. Mode `overwrite`: a stale
 //! archive never waits for a confirm, and it lists no invariant, since
-//! archiving an archived PC is a no-op and not a violation.
+//! archiving an archived PC is a no-op and not a violation. An unknown
+//! id is the engine's to refuse, with `pc-active`.
 
 use std::sync::Arc;
 

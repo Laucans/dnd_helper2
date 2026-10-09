@@ -98,20 +98,22 @@ fn ysolde(level: Value) -> Value {
     json!({ "nom": "Ysolde", "classe": "Barde", "niveau": level })
 }
 
+/// The registry the server ships. `Registry` has no length, so "only these"
+/// is checked on the commands that must never ship: the test ones.
 #[test]
-fn the_server_registers_exactly_the_three_mutations() {
+fn the_server_registers_the_three_mutations_and_no_test_command() {
     let r = startup::registry(&Aggregates::embedded().unwrap()).unwrap();
     for key in [modifier_pj::KEY, archiver_pj::KEY, archiver_campagne::KEY] {
         assert!(r.get(key).is_some(), "{key}");
     }
-    // No insert yet, and never a test command.
     for key in [
-        "campagne.creerCampagne@1",
-        "campagne.ajouterPj@1",
         test_commands::CREER_CAMPAGNE,
-        test_commands::MODIFIER_PJ,
-        test_commands::ARCHIVER_PJ,
+        test_commands::RENOMMER_CAMPAGNE,
         test_commands::ARCHIVER_CAMPAGNE,
+        test_commands::AJOUTER_PJ,
+        test_commands::MODIFIER_PJ,
+        test_commands::REGLER_NIVEAU,
+        test_commands::ARCHIVER_PJ,
     ] {
         assert!(r.get(key).is_none(), "{key}");
     }
