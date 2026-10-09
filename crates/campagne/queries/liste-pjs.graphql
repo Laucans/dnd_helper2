@@ -1,0 +1,3 @@
+query ListePjs($campagneId: ID!) @capability(id: "campagne.listerPjs") {
+  pjs(campagneId: $campagneId) { id nom classe niveau creeLe }
+}

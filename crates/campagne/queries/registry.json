@@ -1,0 +1,40 @@
+{
+  "queries": [
+    {
+      "query": "ListeCampagnes",
+      "capability": "campagne.listerCampagnes",
+      "file": "liste-campagnes.graphql",
+      "sha256": "cb01689c2cd41d7f4dea4c8c2f43477d17f8a17f460e82877d97c4c8be2b47af",
+      "fields": ["campagne_active.id", "campagne_active.nom", "campagne_active.creeLe"]
+    },
+    {
+      "query": "ListePjs",
+      "capability": "campagne.listerPjs",
+      "file": "liste-pjs.graphql",
+      "sha256": "9d3fdd000aaacd7386f0427043db96a017107e1726ebd65cf7e45a51fef928d3",
+      "fields": [
+        "campagne_active.id",
+        "pj_actif.id",
+        "pj_actif.campagneId",
+        "pj_actif.nom",
+        "pj_actif.classe",
+        "pj_actif.niveau",
+        "pj_actif.creeLe"
+      ]
+    },
+    {
+      "query": "NiveauxPjsActifs",
+      "capability": "campagne.niveauDuGroupe",
+      "file": "niveaux-pjs-actifs.graphql",
+      "sha256": "e7ded8780e5a3d9b48762ee93b6482edb2685e949a64819f4204473879284ca7",
+      "fields": [
+        "campagne_active.id",
+        "pj_actif.id",
+        "pj_actif.campagneId",
+        "pj_actif.niveau",
+        "pj_actif.creeLe",
+        "data_version.dataVersion"
+      ]
+    }
+  ]
+}
