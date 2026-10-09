@@ -18,6 +18,7 @@ path = "src/main.rs"
 archiver-campagne = { path = "../../dataguard/data-capabilities/archiver-campagne" }
 archiver-pj = { path = "../../dataguard/data-capabilities/archiver-pj" }
 axum.workspace = true
+creer-campagne = { path = "../../dataguard/data-capabilities/creer-campagne" }
 dataguard = { path = "../../dataguard" }
 hex.workspace = true
 modifier-pj = { path = "../../dataguard/data-capabilities/modifier-pj" }

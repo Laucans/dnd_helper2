@@ -215,6 +215,7 @@ dependencies = [
  "archiver-pj",
  "axum",
  "chrono",
+ "creer-campagne",
  "dataguard",
  "hex",
  "http-body-util",
@@ -321,6 +322,16 @@ name = "crc-catalog"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "217698eaf96b4a3f0bc4f3662aaa55bdf913cd54d7204591faa790070c6d0853"
+
+[[package]]
+name = "creer-campagne"
+version = "0.1.0"
+dependencies = [
+ "dataguard",
+ "jsonschema",
+ "serde_json",
+ "uuid",
+]
 
 [[package]]
 name = "crossbeam-queue"
