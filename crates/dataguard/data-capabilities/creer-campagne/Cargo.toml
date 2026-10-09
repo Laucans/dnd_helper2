@@ -1,0 +1,18 @@
+[package]
+name = "creer-campagne"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+name = "creer_campagne"
+path = "src/lib.rs"
+
+[dependencies]
+dataguard = { path = "../.." }
+serde_json.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+jsonschema.workspace = true
