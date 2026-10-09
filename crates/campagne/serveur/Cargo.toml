@@ -15,9 +15,12 @@ name = "campagne-serveur"
 path = "src/main.rs"
 
 [dependencies]
+archiver-campagne = { path = "../../dataguard/data-capabilities/archiver-campagne" }
+archiver-pj = { path = "../../dataguard/data-capabilities/archiver-pj" }
 axum.workspace = true
 dataguard = { path = "../../dataguard" }
 hex.workspace = true
+modifier-pj = { path = "../../dataguard/data-capabilities/modifier-pj" }
 serde_json.workspace = true
 sha2.workspace = true
 sqlx.workspace = true
