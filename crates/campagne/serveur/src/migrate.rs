@@ -368,7 +368,9 @@ mod tests {
                 "0001_campagne.sql",
                 "0002_pj.sql",
                 "0003_vues_lecture.sql",
-                "0004_role_lecture.sql"
+                "0004_role_lecture.sql",
+                "0005_dataguard_version.sql",
+                "0006_dataguard_queue.sql"
             ]
         );
     }

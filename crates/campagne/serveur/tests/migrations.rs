@@ -9,11 +9,13 @@ use std::time::Duration;
 use common::{TestDb, table_exists};
 use sha2::{Digest, Sha256};
 
-const ALL: [&str; 4] = [
+const ALL: [&str; 6] = [
     "0001_campagne.sql",
     "0002_pj.sql",
     "0003_vues_lecture.sql",
     "0004_role_lecture.sql",
+    "0005_dataguard_version.sql",
+    "0006_dataguard_queue.sql",
 ];
 
 fn mig(name: &'static str, sql: &'static str) -> Migration<'static> {

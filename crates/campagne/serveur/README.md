@@ -1,8 +1,24 @@
 # campagne-serveur
 
-The local server of the app. On start it validates its configuration,
-connects to PostgreSQL, applies every pending migration, then listens on
-`127.0.0.1` only. Its one endpoint is `GET /health`, which answers `ok`.
+The local server of the app. On start it validates its configuration and the
+DataGuard's aggregates, connects to PostgreSQL, applies every pending
+migration, then listens on `127.0.0.1` only. It runs the one DataGuard
+applier (`crates/dataguard`) and one `LISTEN data_version` connection.
+
+## Endpoints
+
+| Route | Answer |
+|---|---|
+| `GET /health` | `ok`. |
+| `POST /commands` | Queues a command and answers `202` at once with `{commandId, partition, replayed, warnings}` and either `{entry, messages}` or `{result}`. Never waits for the apply, never refuses for concurrency. `400 {"error": id}` for `unknown-capability`, `malformed-submission`, `idempotency-key-required`, `idempotency-key-conflict`, `based-on-ahead`; `500 {"error":"internal"}`. |
+| `GET /commands/{commandId}` | `{entry, messages}` while pending (contracts G and L), `{result}` once settled (contract H); `404 {"error":"not-found"}`. |
+| `GET /data-version` | Server-sent events: `event: dataVersion`, `data: {"dataVersion": N}` — the current version first, then each greater one. No row data. |
+
+The body of a submission is
+`{dataCapability: "<system>.<name>@<version>", target?: {id}, payload, basedOn?: {version, values?}, idempotencyKey?}`.
+A `by` in it is ignored: every command is the GM's (`mj-local`). This server
+registers no DataCapability yet, so every submission is an
+`unknown-capability` until one is added.
 
 ## Environment
 
@@ -49,5 +65,10 @@ bytes, time applied).
 ## Tests
 
 Database tests create and drop their own database through `DATABASE_URL`, and
-fail — never skip — when it is missing. The read-only role test also needs
+fail — never skip — when it is missing. The read-only role tests also need
 `DATABASE_URL_READONLY` pointing at the `app_lecture` login.
+
+The DataGuard engine's database tests (`tests/dataguard_*.rs`) live here, where
+its migrations are, and drive it with test-only commands
+(`tests/common/test_commands.rs`) and a manual clock. No test command is a
+`data-capability.json`.
