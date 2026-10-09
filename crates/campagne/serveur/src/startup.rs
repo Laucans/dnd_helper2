@@ -6,7 +6,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use dataguard::{Aggregates, Engine, EngineError, Registry, SystemClock, VersionFeed};
+use dataguard::{
+    Aggregates, Engine, EngineError, RegistrationError, Registry, SystemClock, VersionFeed,
+};
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tokio::net::TcpListener;
@@ -35,6 +37,10 @@ pub enum StartupError {
     Serve(std::io::ErrorKind),
     #[error(transparent)]
     Engine(#[from] EngineError),
+    #[error("a DataCapability manifest does not parse as contract F")]
+    CapabilityManifest,
+    #[error(transparent)]
+    Registration(#[from] RegistrationError),
 }
 
 /// Opens the pool on `DATABASE_URL`. The driver's error is dropped unread:
@@ -66,15 +72,32 @@ pub async fn prepare(
     Ok((pool, listener))
 }
 
-/// The shipped server registers no DataCapability: every command submitted
-/// to it is an unknown capability until a later task adds one.
+/// The DataCapabilities the shipped server accepts commands for, each
+/// checked against the aggregates. Any other command is an unknown
+/// capability.
+pub fn registry(aggregates: &Aggregates) -> Result<Registry, StartupError> {
+    let mut registry = Registry::empty();
+    for cap in [
+        modifier_pj::capability(),
+        archiver_pj::capability(),
+        archiver_campagne::capability(),
+    ] {
+        let cap = cap.map_err(|_| StartupError::CapabilityManifest)?;
+        registry.register(aggregates, cap)?;
+    }
+    Ok(registry)
+}
+
+/// The registry is built before anything connects: a manifest the aggregates
+/// refuse stops startup before the database or the port is touched.
 pub async fn run(config: Config) -> Result<(), StartupError> {
     let aggregates = Aggregates::embedded().map_err(EngineError::from)?;
+    let registry = registry(&aggregates)?;
     let (pool, listener) = prepare(&config, embedded::EMBEDDED).await?;
     let engine = Arc::new(Engine::with_aggregates(
         pool.clone(),
         aggregates,
-        Registry::empty(),
+        registry,
         Arc::new(SystemClock),
     ));
     let (stop, stopped) = watch::channel(false);
