@@ -25,6 +25,13 @@ describe('PJ_VIOLATIONS', () => {
     expect(out.map((v) => v.id)).toEqual(['pc-name-required-x', 'pc-level', 'toString', 'brand-new-rule']);
   });
 
+  it('restates no rule in its texts and carries the id as received', () => {
+    for (const [id, entry] of Object.entries(PJ_VIOLATIONS)) {
+      expect(entry.message).toContain(id);
+      expect(entry.message.replace(id, '')).not.toMatch(/\d/);
+    }
+  });
+
   it('has exactly the four ids of the table', () => {
     expect(Object.keys(PJ_VIOLATIONS).sort()).toEqual(['pc-class-required', 'pc-level-range', 'pc-name-required', 'pc-name-unique-in-campaign']);
   });

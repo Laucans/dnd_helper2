@@ -15,11 +15,12 @@ export interface PcFormValues {
   niveau: string;
 }
 
+// The texts name the input and carry the id as received; they restate no rule.
 export const PJ_VIOLATIONS: ViolationMap = {
-  'pc-name-required': { field: 'nom', message: 'Le nom est refusé.' },
-  'pc-name-unique-in-campaign': { field: 'nom', message: 'Un PJ actif de cette campagne porte déjà ce nom.' },
-  'pc-class-required': { field: 'classe', message: 'La classe est refusée.' },
-  'pc-level-range': { field: 'niveau', message: 'Le niveau doit être un entier de 1 à 20.' },
+  'pc-name-required': { field: 'nom', message: 'Nom refusé : pc-name-required' },
+  'pc-name-unique-in-campaign': { field: 'nom', message: 'Nom refusé : pc-name-unique-in-campaign' },
+  'pc-class-required': { field: 'classe', message: 'Classe refusée : pc-class-required' },
+  'pc-level-range': { field: 'niveau', message: 'Niveau refusé : pc-level-range' },
 };
 
 /** The `field` of a message in the engine's `<Aggregate>.<field>` form; anything else marks no input. */
