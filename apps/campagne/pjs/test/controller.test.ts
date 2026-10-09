@@ -1,4 +1,4 @@
-import { ActionNotOfferedError, TransportError, type AwaitOutcome, type Message } from '@dnd-helper/micro-ui-shell';
+import { ActionNotOfferedError, TransportError, type AwaitOutcome, type Message, type Submitted } from '@dnd-helper/micro-ui-shell';
 import { describe, expect, it } from 'vitest';
 import { createPjsController } from '../src/controller';
 import { viewOf } from '../src/view-model';
@@ -515,6 +515,29 @@ describe('awaiting confirmation', () => {
     expect(s.st().edit).not.toBeNull();
   });
 
+  it('stays parked and flags the link when a confirm cannot reach the queue, then confirms on the retry', async () => {
+    const s = await parked();
+    s.shell.actHandler = () => Promise.reject(new TransportError('network'));
+    await s.ctrl.confirmEdit();
+    expect(s.st().edit).toMatchObject({ transportError: true, command: { kind: 'awaiting', commandId: 'c1' } });
+    expect(viewOf(s.st()).edit?.awaiting).toMatchObject({ canConfirm: true, canCancel: true });
+    s.shell.actHandler = () => Promise.resolve(settledView('c1', 'applied'));
+    await s.ctrl.confirmEdit();
+    expect(s.shell.acts).toEqual([
+      { id: 'c1', action: 'confirm_overwrite' },
+      { id: 'c1', action: 'confirm_overwrite' },
+    ]);
+    expect(s.st().edit).toBeNull();
+  });
+
+  it('stays parked, and shows no success, when the lookup after a refused confirm cannot reach the queue', async () => {
+    const s = await parked();
+    s.shell.actHandler = (id, action) => Promise.reject(new ActionNotOfferedError(id, action));
+    s.shell.lookupHandler = () => Promise.reject(new TransportError('network'));
+    await s.ctrl.confirmEdit();
+    expect(s.st().edit).toMatchObject({ transportError: true, command: { kind: 'awaiting', commandId: 'c1' } });
+  });
+
   it('shows an expired edit as terminal, with no confirm, and the list as it was', async () => {
     const s = await parked();
     const shown = () => viewOf(s.st()).rows.map(({ id, name, class: cls, level }) => ({ id, name, cls, level }));
@@ -749,6 +772,101 @@ describe('dispose', () => {
     expect(seen).toEqual([]);
     expect(s.shell.submits).toHaveLength(1);
     expect(s.shell.disposed).toBe(false);
+  });
+});
+
+describe('a command the queue does not know when its wait starts', () => {
+  const unknown = (id: string) => () => Promise.resolve<AwaitOutcome>({ kind: 'not-found', commandId: id });
+
+  it('hands the add form back retryable, values kept, with the same key', async () => {
+    const s = loaded();
+    s.shell.submitQueue.push(queued('c1'), queued('c2'));
+    s.shell.script('c1', unknown('c1'));
+    fillAdd(s.ctrl);
+    await s.ctrl.submitAdd();
+    expect(s.st().add).toMatchObject({
+      values: { nom: 'Cyrielle', classe: 'Rôdeuse', niveau: '5' },
+      command: { kind: 'idle' },
+      transportError: true,
+    });
+    void s.ctrl.submitAdd();
+    await flush();
+    expect(s.shell.submits).toHaveLength(2);
+    expect(s.shell.submits[1]?.idempotencyKey).toBe(s.shell.submits[0]?.idempotencyKey);
+  });
+
+  it('frees the archived row and says the send failed, instead of waiting for ever', async () => {
+    const s = loaded();
+    s.shell.submitQueue.push(queued('c1'));
+    s.shell.script('c1', unknown('c1'));
+    await s.ctrl.archive('p1');
+    expect(s.st().archiving.size).toBe(0);
+    expect(s.st().rowNotices).toEqual({ p1: { kind: 'transport' } });
+    expect(viewOf(s.st()).rows[0]).toMatchObject({ archiving: false, canArchive: true });
+  });
+});
+
+describe('a campaign switch while a send is on its way', () => {
+  it('leaves the new campaign’s add form alone when the old send lands late, and starts it on a new key', async () => {
+    const s = loaded();
+    const late = deferred<Submitted>();
+    s.shell.submitQueue.push(() => late.promise, queued('c2'));
+    fillAdd(s.ctrl);
+    void s.ctrl.submitAdd();
+    await flush();
+    s.ctrl.setCampagne('camp-2');
+    s.ctrl.setAddField('nom', 'Dorian');
+    late.resolve(queued('c1'));
+    await flush();
+    expect(s.st().add).toMatchObject({ values: { nom: 'Dorian' }, command: { kind: 'idle' } });
+    expect(s.shell.awaits).toEqual([]);
+
+    s.ctrl.setAddField('classe', 'Barde');
+    s.shell.emit({ kind: 'data', data: [], asOf: 1 });
+    void s.ctrl.submitAdd();
+    await flush();
+    expect(s.shell.submits[1]).toMatchObject({ payload: { campagneId: 'camp-2', nom: 'Dorian' }, idempotencyKey: 'key-2' });
+    expect(s.shell.submits[0]?.idempotencyKey).toBe('key-1');
+  });
+});
+
+describe('the edit key', () => {
+  it('is kept for a retry on the same PC after a failed send', async () => {
+    const s = loaded();
+    s.ctrl.openEdit('p1');
+    s.shell.submitQueue.push(new TransportError('network'), queued('c1'));
+    await s.ctrl.submitEdit();
+    void s.ctrl.submitEdit();
+    await flush();
+    expect(s.shell.submits).toHaveLength(2);
+    expect(s.shell.submits[1]?.idempotencyKey).toBe(s.shell.submits[0]?.idempotencyKey);
+  });
+
+  it('is never carried to another PC: opening the next PC after a failed send starts a clean attempt', async () => {
+    const s = loaded();
+    s.ctrl.openEdit('p1');
+    s.shell.submitQueue.push(new TransportError('network'), queued('c2'));
+    await s.ctrl.submitEdit();
+    expect(s.st().edit).toMatchObject({ pcId: 'p1', transportError: true });
+    s.ctrl.openEdit('p2');
+    expect(s.st().edit).toMatchObject({ pcId: 'p2', transportError: false, command: { kind: 'idle' } });
+    void s.ctrl.submitEdit();
+    await flush();
+    expect(s.shell.submits[0]?.target).toEqual({ aggregate: 'PJ', id: 'p1' });
+    expect(s.shell.submits[1]?.target).toEqual({ aggregate: 'PJ', id: 'p2' });
+    expect(s.shell.submits[1]?.idempotencyKey).not.toBe(s.shell.submits[0]?.idempotencyKey);
+  });
+});
+
+describe('a read that recovers', () => {
+  it('drops the late and the failed marks when a fresh answer arrives', () => {
+    const { shell, st } = loaded();
+    shell.emit({ kind: 'stale', asOf: 7, wanted: 9 });
+    shell.emit({ kind: 'error', error: new TransportError('network') });
+    expect(viewOf(st()).banner).toBe('error');
+    shell.emit({ kind: 'data', data: [row('p1', 'Aria')], asOf: 9 });
+    expect(st().list).toMatchObject({ kind: 'rows', asOf: 9, stale: false, error: false });
+    expect(viewOf(st()).banner).toBe('none');
   });
 });
 
