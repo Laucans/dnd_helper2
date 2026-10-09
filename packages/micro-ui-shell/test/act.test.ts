@@ -69,4 +69,22 @@ describe('act on a command by id (rules 35–36)', () => {
     // @ts-expect-error nor `edit`
     void h.client.act(CMD, 'edit').catch(() => undefined);
   });
+
+  it('an action that was sent is not offered again until a newer message offers it', async () => {
+    const h = harness();
+    h.fetch.enqueue(
+      pending('awaiting_confirmation', [ahead]),
+      pending('confirmed', [ahead]), // the answer to the confirm: the old message is still in the history
+    );
+    await h.client.lookup(CMD);
+    const after = await h.client.act(CMD, 'confirm_overwrite');
+    expect(after).toMatchObject({ kind: 'pending', state: 'confirmed', actions: [] });
+    await expect(h.client.act(CMD, 'confirm_overwrite')).rejects.toBeInstanceOf(ActionNotOfferedError);
+    expect(h.fetch.calls).toHaveLength(2);
+
+    const again = { message: 'Parked', to: ['gm'], actions: ['confirm_overwrite', 'cancel'] };
+    h.fetch.enqueue(pending('parked', [ahead, again]), pending('confirmed', [ahead, again]));
+    expect(await h.client.lookup(CMD)).toMatchObject({ actions: ['confirm_overwrite', 'cancel'] });
+    await h.client.act(CMD, 'confirm_overwrite');
+  });
 });

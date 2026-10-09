@@ -82,6 +82,8 @@ type Known = Exclude<CommandView, { kind: 'not-found' }>;
 export class Commands {
   /** Per command: the first terminal result is final (rule 33), else the latest pending view. */
   private readonly seen = new Map<string, Known>();
+  /** Per command: how many messages were known when an action was last sent. Those messages' actions are spent. */
+  private readonly spent = new Map<string, number>();
 
   constructor(private readonly deps: CommandsDeps) {}
 
@@ -138,7 +140,10 @@ export class Commands {
     const path = action === 'confirm_overwrite' ? ROUTES.confirm(commandId) : ROUTES.cancel(commandId);
     const res = await this.deps.http.request('POST', path, { signal: opts?.signal });
     if (res.kind === 'not-found') return { kind: 'not-found', commandId };
-    return this.ingest(commandId, parseLookupAnswer(res.body));
+    const answer = parseLookupAnswer(res.body);
+    // An action that was sent is not offered again until a newer message offers it.
+    if ('messages' in answer) this.spent.set(commandId, answer.messages.length);
+    return this.ingest(commandId, answer);
   }
 
   async awaitResult(commandId: string, opts: AwaitOptions = {}): Promise<AwaitOutcome> {
@@ -168,6 +173,7 @@ export class Commands {
     const delay = backoff(this.deps.config.poll.initialMs, this.deps.config.poll.maxMs, this.deps.config.poll.factor);
     let last: CommandView | null = cached ?? null;
     let signature = last === null ? '' : signatureOf(last);
+    let networkFailures = 0;
     const pending = (): AwaitOutcome => ({
       kind: 'still-pending',
       commandId,
@@ -181,8 +187,15 @@ export class Commands {
           view = await this.lookup(commandId, { signal: stop.signal });
         } catch (e) {
           if (stop.signal.aborted || e instanceof ClientDisposedError) return pending();
+          // A wait can last for hours: one network blip does not end it, a run of them does.
+          if (e instanceof TransportError && e.kind === 'network' && networkFailures < this.deps.config.submitRetries) {
+            networkFailures += 1;
+            await sleep(this.deps.timers, delay(attempt), stop.signal);
+            continue;
+          }
           throw e;
         }
+        networkFailures = 0;
         if (view.kind === 'not-found') return view;
         if (view.kind === 'settled') return settled(view.result);
         last = view;
@@ -207,7 +220,7 @@ export class Commands {
 
     if ('result' in answer) {
       const view: Known = { kind: 'settled', result: answer.result };
-      this.seen.set(commandId, view);
+      this.remember(commandId, view);
       if (answer.result.status === 'applied') {
         const { dataVersion } = answer.result;
         if (dataVersion === null) this.deps.hub.forceRefetch();
@@ -218,7 +231,9 @@ export class Commands {
 
     const { entry, messages } = answer;
     if (!isPending(entry.state)) throw new ProtocolError('command lookup', 'pending answer with a terminal state');
-    const offered = [...messages].reverse().find((m) => m.actions !== undefined);
+    let offeredAt = messages.length - 1;
+    while (offeredAt >= 0 && messages[offeredAt]?.actions === undefined) offeredAt -= 1;
+    const offered = offeredAt < (this.spent.get(commandId) ?? 0) ? undefined : messages[offeredAt];
     const withValue = [...messages].reverse().find((m) => m.yourValue !== undefined);
     const yourValue = entry.yourValue ?? withValue?.yourValue;
     const view: Known = {
@@ -230,10 +245,24 @@ export class Commands {
       actions: offered?.actions ?? [],
       ...(yourValue === undefined ? {} : { yourValue }),
     };
-    this.seen.set(commandId, view);
+    this.remember(commandId, view);
     return view;
   }
+
+  /** Bounded: the oldest commands are forgotten first. */
+  private remember(commandId: string, view: Known): void {
+    this.seen.delete(commandId);
+    this.seen.set(commandId, view);
+    while (this.seen.size > MAX_REMEMBERED) {
+      const oldest = this.seen.keys().next().value;
+      if (oldest === undefined) break;
+      this.seen.delete(oldest);
+      this.spent.delete(oldest);
+    }
+  }
 }
+
+const MAX_REMEMBERED = 500;
 
 function isPending(state: QueueEntry['state']): state is PendingState {
   return state !== 'applied' && state !== 'rejected' && state !== 'expired' && state !== 'cancelled';
