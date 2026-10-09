@@ -261,6 +261,15 @@ describe('a failed read (rule 24)', () => {
     expect(controller.state()).toEqual(ready(4, 2, 5, true));
   });
 
+  it('an answer at the same asOf as the kept value clears the mark: a retry of the same version recovers', () => {
+    const { host, controller } = setup();
+    host.emit(0, data(4, 2, 5));
+    host.emit(0, { kind: 'error', error: transportError() });
+    expect(controller.state()).toEqual(ready(4, 2, 5, true));
+    host.emit(0, data(4, 2, 5));
+    expect(controller.state()).toEqual(ready(4, 2, 5));
+  });
+
   it('recovers by itself on the next answer, and the mark goes', () => {
     const { host, controller } = setup();
     host.emit(0, data(4, 2, 5));
