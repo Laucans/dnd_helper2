@@ -42,7 +42,7 @@ export class DataVersionHub {
   private attempt = 0;
   private sawError = false;
   private closed = false;
-  private readonly refetchers: Array<() => void> = [];
+  private readonly refetchers: Array<(force: boolean) => void> = [];
   private waiters: Waiter[] = [];
   private readonly delay: (attempt: number) => number;
 
@@ -83,14 +83,19 @@ export class DataVersionHub {
     };
   }
 
-  /** Registers the function that re-reads everything (once per bump or reconnect). */
-  onRefetch(fn: () => void): void {
+  /**
+   * Registers the function that re-reads everything. `force` is true when the
+   * version alone cannot say the data is current (a reconnect, an `applied`
+   * result without a version); false on a bump, which a read already at that
+   * version may skip.
+   */
+  onRefetch(fn: (force: boolean) => void): void {
     this.refetchers.push(fn);
   }
 
   /** Re-read without moving the known version (an `applied` result without one). */
   forceRefetch(): void {
-    this.fireRefetch();
+    this.fireRefetch(true);
   }
 
   /**
@@ -112,7 +117,7 @@ export class DataVersionHub {
         this.deps.diagnostic({ kind: 'listener-threw' });
       }
     }
-    this.fireRefetch();
+    this.fireRefetch(false);
   }
 
   /** Resolves `true` when a push reached `version`, `false` after `ms` or on close. */
@@ -141,8 +146,8 @@ export class DataVersionHub {
     this.waiters = [];
   }
 
-  private fireRefetch(): void {
-    for (const fn of this.refetchers) fn();
+  private fireRefetch(force: boolean): void {
+    for (const fn of this.refetchers) fn(force);
   }
 
   private releaseWaiters(): void {
@@ -188,7 +193,7 @@ export class DataVersionHub {
       if (this.sawError) {
         // Pushes sent during the gap are lost: read again, once.
         this.sawError = false;
-        this.fireRefetch();
+        this.fireRefetch(true);
       }
     });
     source.addEventListener(SSE_DATA_VERSION_EVENT, (event) => {

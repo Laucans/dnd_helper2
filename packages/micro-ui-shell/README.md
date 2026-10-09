@@ -79,9 +79,13 @@ const stop = shell.watch<Pc[]>('campagne.listerPjs', { campagneId }, (e) => {
 
 A read takes an identifier and variables — there is no parameter for query text.
 `watch` keys its entry by identifier plus the full variables (key order does not
-matter), so data read for campaign A is never served for campaign B. Two
+matter) and keeps its own copy of the variables, so data read for campaign A is
+never served for campaign B. Two
 watchers of one key share one fetch. A new highest `dataVersion` marks every
-entry dirty; a burst of pushes is one refetch per entry, at the latest version.
+entry dirty unless its data is already at that version; a burst of pushes is one
+refetch per entry, at the latest version. A failed read is reported as an
+`error` event and not retried on its own: the next bump, a reconnect or a new
+watcher of the same key reads again.
 
 ### Commands
 
@@ -112,10 +116,14 @@ const outcome = await shell.awaitResult(sent.commandId, {
   id missing from the map, or a rejection without ids, gets a generic message
   (`rejected: <id>` / `rejected`); pass your own copy through `mapViolations`.
 - `act(commandId, 'confirm_overwrite' | 'cancel')` posts to the server only when
-  the latest known message listed the action, else `ActionNotOfferedError`
-  without a request. If the client has not seen the command (after a page
+  the latest message that offered `actions` listed it, else `ActionNotOfferedError`
+  without a request. Once an action was sent, the messages known at that moment
+  no longer offer anything: only a newer message does. If the client has not seen the command (after a page
   reload), call `lookup(commandId)` first. The author's gesture is what calls it.
-- The first terminal state seen for a `commandId` is final.
+- The first terminal state seen for a `commandId` is final. The client remembers
+  the 500 most recent commands.
+- `awaitResult` rides out a short run of network failures while polling (as many
+  as `submitRetries`, consecutive), then throws the `TransportError`.
 
 ### dataVersion
 

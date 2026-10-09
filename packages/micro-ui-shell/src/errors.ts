@@ -11,12 +11,24 @@ export class InvalidIdentifierError extends Error {
   }
 }
 
+/** Scheme and host only: a base URL may carry userinfo, which must never reach a log. */
+function redactedOrigin(raw: string): string {
+  try {
+    const url = new URL(raw);
+    return `${url.protocol}//${url.hostname}`;
+  } catch {
+    return '(unparsable)';
+  }
+}
+
 export class NonLoopbackBaseUrlError extends Error {
+  /** Redacted: scheme and host only. */
   readonly baseUrl: string;
   constructor(baseUrl: string) {
-    super(`base URL "${baseUrl}" is not on the loopback interface`);
+    const shown = redactedOrigin(baseUrl);
+    super(`base URL "${shown}" is not on the loopback interface`);
     this.name = 'NonLoopbackBaseUrlError';
-    this.baseUrl = baseUrl;
+    this.baseUrl = shown;
   }
 }
 

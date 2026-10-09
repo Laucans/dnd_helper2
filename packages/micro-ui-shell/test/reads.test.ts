@@ -110,9 +110,11 @@ describe('watch (rules 16, 17, 46–51)', () => {
 
   it('the same version as a push and as an own result refetches once', async () => {
     const h = harness();
-    h.fetch.always(() => answer('v', 7));
+    let asOf = 6;
+    h.fetch.always(() => answer('v', asOf));
     h.client.watch('campagne.listerPjs', { c: 1 }, () => undefined);
     await h.clock.tick();
+    asOf = 7;
     h.fetch.enqueue(accepted(), settled('applied', { dataVersion: 7 }));
     const s = await h.client.submit(submitBase);
     await h.client.awaitResult(s.commandId);
@@ -281,5 +283,61 @@ describe('watch (rules 16, 17, 46–51)', () => {
     await h.clock.tick();
     expect(seen).toHaveLength(1);
     expect(h.diagnostics).toEqual([{ kind: 'listener-threw' }]);
+  });
+});
+
+describe('watch — review findings', () => {
+  it('a bump the loaded data already covers costs no fetch; a first connect is not read twice', async () => {
+    const h = harness();
+    h.fetch.always(() => answer('v', 5));
+    h.client.watch('campagne.listerPjs', { c: 1 }, () => undefined);
+    await h.clock.tick();
+    h.sources.instances[0]!.emit('dataVersion', dataVersionEvent(5)); // the first event: the current version
+    await h.clock.tick();
+    expect(h.fetch.calls).toHaveLength(1);
+    h.sources.instances[0]!.emit('dataVersion', dataVersionEvent(6));
+    await h.clock.tick();
+    expect(h.fetch.calls).toHaveLength(2);
+  });
+
+  it('a reconnect refetches once even though the server then repeats the current version', async () => {
+    const h = harness();
+    h.fetch.always(() => answer('v', 5));
+    h.client.watch('campagne.listerPjs', { c: 1 }, () => undefined);
+    await h.clock.tick();
+    h.sources.instances[0]!.emit('dataVersion', dataVersionEvent(5));
+    h.sources.instances[0]!.fail(2);
+    await h.clock.runAll();
+    h.sources.instances[1]!.open();
+    h.sources.instances[1]!.emit('dataVersion', dataVersionEvent(5));
+    await h.clock.tick();
+    expect(h.fetch.calls).toHaveLength(2);
+  });
+
+  it('a late watcher of a failed read is shown the error and the read is tried again', async () => {
+    const h = harness();
+    h.fetch.enqueue(json({ error: 'internal' }, 500));
+    const first: WatchEvent<unknown>[] = [];
+    h.client.watch('campagne.listerPjs', { c: 1 }, (e) => first.push(e));
+    await h.clock.tick();
+    expect(first.map((e) => e.kind)).toEqual(['error']);
+    h.fetch.always(() => answer('v', 2));
+    const late: WatchEvent<unknown>[] = [];
+    h.client.watch('campagne.listerPjs', { c: 1 }, (e) => late.push(e));
+    await h.clock.tick();
+    expect(late.map((e) => e.kind)).toEqual(['error', 'data']);
+    expect(first.map((e) => e.kind)).toEqual(['error', 'data']);
+  });
+
+  it('a caller that mutates its variables afterwards cannot redirect the read to another campaign', async () => {
+    const h = harness();
+    h.fetch.always(() => answer('v', 1));
+    const vars: { campagneId: string } = { campagneId: 'A' };
+    h.client.watch('campagne.listerPjs', vars, () => undefined);
+    await h.clock.tick();
+    vars.campagneId = 'B';
+    h.sources.instances[0]!.emit('dataVersion', dataVersionEvent(9));
+    await h.clock.tick();
+    expect(h.fetch.calls.map((c) => c.body)).toEqual(['{"variables":{"campagneId":"A"}}', '{"variables":{"campagneId":"A"}}']);
   });
 });

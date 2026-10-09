@@ -144,4 +144,19 @@ describe('awaitResult (rules 28–34)', () => {
     expect(await h.client.awaitResult(s.commandId)).toMatchObject({ kind: 'settled' });
     expect(h.client.knownDataVersion()).toBe(5);
   });
+
+  it('survives a short run of network failures while polling, then reports them', async () => {
+    const h = harness({ submitRetries: 2 });
+    h.fetch.enqueue(new TypeError('down'), new TypeError('down'), settled('applied'));
+    const p = h.client.awaitResult(CMD);
+    await h.clock.runAll();
+    expect(await p).toMatchObject({ kind: 'settled' });
+
+    const g = harness({ submitRetries: 1 });
+    g.fetch.always(new TypeError('down'));
+    const failing = g.client.awaitResult(CMD).catch((e: unknown) => e);
+    await g.clock.runAll();
+    expect(await failing).toMatchObject({ name: 'TransportError', kind: 'network' });
+    expect(g.fetch.calls).toHaveLength(2);
+  });
 });
