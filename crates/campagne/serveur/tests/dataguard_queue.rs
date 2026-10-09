@@ -409,7 +409,10 @@ async fn an_infrastructure_failure_rolls_back_and_the_command_waits_its_turn() {
         .execute(&h.db.pool)
         .await
         .unwrap();
-    // Once the failure clears, it applies first, in its turn.
+    // Once the failure clears and the backoff is over, it applies first, in
+    // its turn.
+    assert_eq!(applier.drain().await.unwrap(), 0);
+    h.clock.advance(Duration::from_secs(1));
     assert_eq!(applier.drain().await.unwrap(), 2);
     assert_eq!(
         h.result(add.command_id).await.data_version,
@@ -422,11 +425,12 @@ async fn an_infrastructure_failure_rolls_back_and_the_command_waits_its_turn() {
     h.drop_db().await;
 }
 
-/// A failing head stays the head: nothing enqueued after it applies first,
-/// whatever its partition (rules 25 and 28). Two adds with the same name, A
-/// then B, apply A then reject B once the failure clears, never the reverse.
+/// A failing head stays the head of its scope: nothing of its campaign
+/// applies before it, whatever its partition (rules 25 and 28). Two adds with
+/// the same name, A then B, apply A then reject B once the failure clears,
+/// never the reverse. A command of another campaign is not held back.
 #[tokio::test]
-async fn a_failing_head_lets_nothing_enqueued_after_it_apply_first() {
+async fn a_failing_head_holds_back_its_scope_and_nothing_else() {
     let h = Harness::new().await;
     let mut applier = h.applier().await;
     let c = h.campaign(&mut applier, "Les Brumes").await;
@@ -450,31 +454,40 @@ async fn a_failing_head_lets_nothing_enqueued_after_it_apply_first() {
         .await;
     assert_ne!(first.partition, second.partition);
 
-    // Retried, it fails again; no later command overtakes it.
+    // The failing add sets its campaign aside; the other campaign goes on.
     assert!(applier.apply_next().await.is_err());
+    assert_eq!(
+        applier.apply_next().await.unwrap(),
+        Some(elsewhere.command_id)
+    );
+    assert_eq!(applier.apply_next().await.unwrap(), None);
+    assert_eq!(
+        h.result(elsewhere.command_id).await.data_version,
+        Some(version + 1)
+    );
+
+    // Retried after the backoff, it fails again; B never overtakes it.
     h.clock.advance(Duration::from_secs(1));
     assert!(applier.apply_next().await.is_err());
-    for s in [&first, &second, &elsewhere] {
+    assert_eq!(applier.apply_next().await.unwrap(), None);
+    for s in [&first, &second] {
         assert_eq!(h.state(s.command_id).await, State::Queued);
     }
-    assert_eq!(h.version().await, version);
+    assert_eq!(h.version().await, version + 1);
 
     sqlx::raw_sql("DROP TRIGGER panne ON pj")
         .execute(&h.db.pool)
         .await
         .unwrap();
-    assert_eq!(applier.drain().await.unwrap(), 3);
+    h.clock.advance(Duration::from_secs(1));
+    assert_eq!(applier.drain().await.unwrap(), 2);
     assert_eq!(
         h.result(first.command_id).await.data_version,
-        Some(version + 1)
+        Some(version + 2)
     );
     let rejected = h.result(second.command_id).await;
     assert_eq!(rejected.status, State::Rejected);
     assert_eq!(rejected.violations, ["pc-name-unique-in-campaign"]);
-    assert_eq!(
-        h.result(elsewhere.command_id).await.data_version,
-        Some(version + 2)
-    );
     h.drop_db().await;
 }
 

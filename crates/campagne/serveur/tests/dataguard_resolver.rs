@@ -116,9 +116,11 @@ async fn a_failing_cascade_archives_nothing() {
         .execute(&h.db.pool)
         .await
         .unwrap();
-    // Retried once its partition's backoff is over.
+    // Its scope is set aside until the backoff is over on the engine clock.
+    assert_eq!(applier.drain().await.unwrap(), 0);
+    assert_eq!(h.state(archive.command_id).await, State::Queued);
     h.clock.advance(Duration::from_secs(1));
-    applier.drain().await.unwrap();
+    assert_eq!(applier.drain().await.unwrap(), 1);
     assert_eq!(h.result(archive.command_id).await.status, State::Applied);
     h.assert_no_orphan().await;
     h.drop_db().await;
