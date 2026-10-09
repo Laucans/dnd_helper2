@@ -2,6 +2,9 @@
 //! A missing variable fails the test: a database test never skips.
 #![allow(dead_code)] // each test binary uses its own part of this module
 
+pub mod contracts;
+pub mod test_commands;
+
 use std::str::FromStr;
 
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
