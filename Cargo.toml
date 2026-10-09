@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/campagne/serveur",
     "crates/dataguard",
+    "crates/dataguard/data-capabilities/ajouter-pj",
     "crates/dataguard/data-capabilities/archiver-campagne",
     "crates/dataguard/data-capabilities/archiver-pj",
     "crates/dataguard/data-capabilities/creer-campagne",
