@@ -165,3 +165,12 @@ async fn a_database_error_is_an_error_not_a_list() {
     };
     assert_eq!(error.to_string(), "database error");
 }
+
+#[tokio::test]
+async fn the_listing_future_is_send() {
+    fn assert_send<T: Send>(_: &T) {}
+    let fake = Fake::answering(json!({ "campagnes": [] }));
+    let future = lister_campagnes(&fake);
+    assert_send(&future);
+    future.await.unwrap();
+}
