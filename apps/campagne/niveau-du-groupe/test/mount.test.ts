@@ -122,6 +122,18 @@ describe('mount', () => {
     expect(slot('level').textContent).toBe(COPY.loading);
   });
 
+  it('a host whose watch throws does not break the page: the section stays, unavailable, and unmounts', () => {
+    const root = new FakeElement('div');
+    const host = new FakeHost();
+    host.onWatch = () => {
+      throw new Error('client disposed');
+    };
+    const mounted = mount(root as unknown as HTMLElement, { campagneId: 'A' }, { shell: host });
+    expect(root.children[0]!.dataset['state']).toBe('unavailable');
+    mounted.unmount();
+    expect(root.children).toHaveLength(0);
+  });
+
   it('unmount releases the watch, removes the section and ignores what comes later', () => {
     const { root, host, mounted } = setup();
     mounted.unmount();
