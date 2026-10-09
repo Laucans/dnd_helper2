@@ -41,6 +41,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "archiver-campagne"
+version = "0.1.0"
+dependencies = [
+ "dataguard",
+ "jsonschema",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "archiver-pj"
+version = "0.1.0"
+dependencies = [
+ "dataguard",
+ "jsonschema",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "atoi"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -191,12 +211,15 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 name = "campagne-serveur"
 version = "0.1.0"
 dependencies = [
+ "archiver-campagne",
+ "archiver-pj",
  "axum",
  "chrono",
  "dataguard",
  "hex",
  "http-body-util",
  "jsonschema",
+ "modifier-pj",
  "serde_json",
  "sha2 0.11.0",
  "sqlx",
@@ -1082,6 +1105,16 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys",
+]
+
+[[package]]
+name = "modifier-pj"
+version = "0.1.0"
+dependencies = [
+ "dataguard",
+ "jsonschema",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]
