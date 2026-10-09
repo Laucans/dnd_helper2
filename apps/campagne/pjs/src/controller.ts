@@ -6,6 +6,7 @@ import {
   ActionNotOfferedError,
   ClientDisposedError,
   mapViolations,
+  type AwaitOutcome,
   ProtocolError,
   TransportError,
   type CommandResult,
@@ -26,6 +27,8 @@ export interface PjsDeps {
   shell: ShellClient;
   /** One idempotency key per form attempt. Defaults to `crypto.randomUUID()`. */
   newKey?: () => string;
+  /** How long to wait before asking again after the connection dropped mid-wait. Defaults to 5 s. */
+  retryMs?: number;
 }
 
 export interface Violation {
@@ -103,8 +106,11 @@ type Pending = Extract<CommandView, { kind: 'pending' }>;
 interface Hooks {
   onId(commandId: string): void;
   onPending(commandId: string, view: Pending): void;
-  onSettled(result: CommandResult, violations: MappedViolation[]): void;
-  onTransport(): void;
+  onSettled(commandId: string, result: CommandResult, violations: MappedViolation[]): void;
+  /** `commandId` is null when the send itself failed, before the command had an id. */
+  onTransport(commandId: string | null): void;
+  /** The wait lost its connection (false) or got it back (true) while the command is alive in the queue. */
+  onLink(ok: boolean): void;
 }
 
 const emptyValues = (): PcFormValues => ({ nom: '', classe: '', niveau: '' });
@@ -117,7 +123,7 @@ const emptyForm = (): FormState => ({
   transportError: false,
 });
 
-const isBusy = (f: FormState): boolean => f.command.kind === 'sending' || f.command.kind === 'awaiting';
+export const isBusy = (f: FormState): boolean => f.command.kind === 'sending' || f.command.kind === 'awaiting';
 
 const isOffered = (a: string): a is OfferedAction => a === 'confirm_overwrite' || a === 'cancel';
 
@@ -144,9 +150,28 @@ function declaredAhead(view: Pending, commandId: string): { value: JsonValue; fi
   return null;
 }
 
+const CLOSED_MAX = 200;
+
+function pause(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    const done = (): void => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener('abort', done, { once: true });
+  });
+}
+
 export function createPjsController(campagneId: string | null, deps: PjsDeps): PjsController {
   const { shell } = deps;
   const newKey = deps.newKey ?? ((): string => crypto.randomUUID());
+  const retryMs = deps.retryMs ?? 5000;
 
   let state: PjsState = freshState(null);
   const listeners = new Set<(s: PjsState) => void>();
@@ -221,6 +246,7 @@ export function createPjsController(campagneId: string | null, deps: PjsDeps): P
     for (const ac of aborts) ac.abort();
     aborts.clear();
     inflight.clear();
+    closed.clear();
   }
 
   function setCampagne(id: string | null): void {
@@ -237,12 +263,31 @@ export function createPjsController(campagneId: string | null, deps: PjsDeps): P
 
   // --- commands -----------------------------------------------------------
 
+  function remember(commandId: string): void {
+    closed.add(commandId);
+    if (closed.size > CLOSED_MAX) {
+      const oldest = closed.values().next().value;
+      if (oldest !== undefined) closed.delete(oldest);
+    }
+  }
+
+  /** A command applied: the refusals shown so far describe a state that no longer holds. */
+  function clearMarks(): void {
+    set({
+      ...state,
+      add: { ...state.add, fieldErrors: {}, formErrors: [] },
+      edit: state.edit === null ? null : { ...state.edit, fieldErrors: {}, formErrors: [] },
+      rowNotices: {},
+    });
+  }
+
   function settle(commandId: string, result: CommandResult, violations: MappedViolation[], hooks: Hooks): void {
     if (closed.has(commandId)) return;
-    closed.add(commandId);
+    remember(commandId);
     const ac = inflight.get(commandId);
     inflight.delete(commandId);
-    hooks.onSettled(result, violations);
+    if (result.status === 'applied') clearMarks();
+    hooks.onSettled(commandId, result, violations);
     // Stop the wait loop; it has nothing left to observe.
     ac?.abort();
   }
@@ -255,7 +300,9 @@ export function createPjsController(campagneId: string | null, deps: PjsDeps): P
   /**
    * Submit, then wait for the terminal state. A wait that times out is renewed
    * for as long as the page lives: a parked edit can last 24 hours. A network
-   * failure leaves the form retryable with the same key.
+   * failure while the command is alive in the queue is waited out, never turned
+   * into a second command; a failure of the send itself leaves the form
+   * retryable with the same key.
    */
   async function runCommand(input: Omit<SubmitInput, 'signal'>, hooks: Hooks): Promise<void> {
     const mine = epoch;
@@ -265,27 +312,44 @@ export function createPjsController(campagneId: string | null, deps: PjsDeps): P
     try {
       const sent = await shell.submit({ ...input, signal: ac.signal });
       if (mine !== epoch) return;
-      commandId = sent.commandId;
-      inflight.set(commandId, ac);
-      hooks.onId(commandId);
-      handleView(commandId, sent.first, hooks);
+      const id = sent.commandId;
+      commandId = id;
+      inflight.set(id, ac);
+      hooks.onId(id);
+      handleView(id, sent.first, hooks);
+      let linkLost = false;
       for (;;) {
-        if (mine !== epoch || closed.has(commandId)) return;
-        const id = commandId;
-        const out = await shell.awaitResult(id, {
-          signal: ac.signal,
-          violationMessages: PJ_VIOLATIONS,
-          onState: (view) => {
-            if (mine === epoch) handleView(id, view, hooks);
-          },
-        });
+        if (mine !== epoch || closed.has(id) || ac.signal.aborted) return;
+        let out: AwaitOutcome;
+        try {
+          out = await shell.awaitResult(id, {
+            signal: ac.signal,
+            violationMessages: PJ_VIOLATIONS,
+            onState: (view) => {
+              if (mine === epoch) handleView(id, view, hooks);
+            },
+          });
+        } catch (e) {
+          if (mine !== epoch || ac.signal.aborted) return;
+          if (!(e instanceof TransportError || e instanceof ProtocolError)) throw e;
+          if (!linkLost) {
+            linkLost = true;
+            hooks.onLink(false);
+          }
+          await pause(retryMs, ac.signal);
+          continue;
+        }
         if (mine !== epoch) return;
+        if (linkLost) {
+          linkLost = false;
+          hooks.onLink(true);
+        }
         if (out.kind === 'settled') {
           settle(id, out.result, out.violationMessages, hooks);
           return;
         }
         if (out.kind === 'not-found') {
-          hooks.onTransport();
+          hooks.onTransport(id);
           return;
         }
         if (out.reason === 'aborted') return;
@@ -293,7 +357,7 @@ export function createPjsController(campagneId: string | null, deps: PjsDeps): P
     } catch (e) {
       if (mine !== epoch) return;
       if (e instanceof TransportError || e instanceof ProtocolError) {
-        hooks.onTransport();
+        hooks.onTransport(commandId);
         return;
       }
       if (e instanceof ClientDisposedError) return;
@@ -334,7 +398,8 @@ export function createPjsController(campagneId: string | null, deps: PjsDeps): P
             command: {
               kind: 'awaiting',
               commandId,
-              yourValue: view.yourValue ?? view.entry.yourValue ?? null,
+              // Never ask the GM to overwrite blind: fall back to what they typed.
+              yourValue: view.yourValue ?? view.entry.yourValue ?? { name: f.values.nom, class: f.values.classe, level: f.values.niveau },
               ahead: ahead?.value ?? null,
               aheadField: ahead?.field ?? null,
               actions: view.actions.filter(isOffered),
@@ -344,7 +409,9 @@ export function createPjsController(campagneId: string | null, deps: PjsDeps): P
           patchForm(which, { command: { kind: 'sending' } });
         }
       },
-      onSettled: (result, violations) => {
+      onSettled: (commandId, result, violations) => {
+        // The GM left this command (closed the form, moved on): it is not this form's any more.
+        if (current[which] !== commandId) return;
         keys[which] = null;
         current[which] = null;
         if (result.status === 'applied') {
@@ -360,8 +427,12 @@ export function createPjsController(campagneId: string | null, deps: PjsDeps): P
           result.status === 'rejected' ? violationNotes(violations) : { fieldErrors: f?.fieldErrors ?? {}, formErrors: f?.formErrors ?? [] };
         patchForm(which, { fieldErrors, formErrors, command: { kind: 'done', status: result.status }, transportError: false });
       },
-      onTransport: () => {
+      onTransport: (commandId) => {
+        if (commandId !== null && current[which] !== commandId) return;
         patchForm(which, { command: { kind: 'idle' }, transportError: true });
+      },
+      onLink: (ok) => {
+        patchForm(which, { transportError: !ok });
       },
     };
   }
@@ -415,7 +486,11 @@ export function createPjsController(campagneId: string | null, deps: PjsDeps): P
   }
 
   function closeEdit(): void {
-    if (disposed || state.edit === null || isBusy(state.edit)) return;
+    const e = state.edit;
+    if (disposed || e === null || e.command.kind === 'sending') return;
+    // Leaving a parked edit is the GM's choice: it stays in the queue and lapses by itself.
+    const id = current.edit;
+    if (id !== null) inflight.get(id)?.abort();
     keys.edit = null;
     current.edit = null;
     set({ ...state, edit: null });
@@ -500,7 +575,7 @@ export function createPjsController(campagneId: string | null, deps: PjsDeps): P
       {
         onId: () => undefined,
         onPending: () => undefined,
-        onSettled: (result, violations) => {
+        onSettled: (_commandId, result, violations) => {
           archiveKeys.delete(pcId);
           // An applied archive, a no-op on an already archived PC included, is a success.
           if (result.status === 'applied') stop(null);
@@ -510,6 +585,7 @@ export function createPjsController(campagneId: string | null, deps: PjsDeps): P
         onTransport: () => {
           stop({ kind: 'transport' });
         },
+        onLink: () => undefined,
       },
     );
   }

@@ -4,7 +4,7 @@
 
 import type { JsonValue } from '@dnd-helper/micro-ui-shell';
 import { COPY } from './copy';
-import type { EditState, FormState, PjsState, RowNotice, Violation } from './controller';
+import { isBusy, type EditState, type FormState, type PjsState, type RowNotice, type Violation } from './controller';
 import { PC_FIELDS, type PcField, type PcFormValues } from './violations';
 
 export type Banner = 'none' | 'idle' | 'loading' | 'empty' | 'not-found' | 'error' | 'stale';
@@ -102,7 +102,7 @@ function bannerOf(s: PjsState): Banner {
 }
 
 function formView(f: FormState): FormView {
-  const busy = f.command.kind === 'sending' || f.command.kind === 'awaiting';
+  const busy = isBusy(f);
   const fieldErrors: Record<PcField, Violation[]> = { nom: [], classe: [], niveau: [] };
   for (const field of PC_FIELDS) fieldErrors[field] = f.fieldErrors[field] ?? [];
   const c = f.command;
@@ -129,7 +129,8 @@ function formView(f: FormState): FormView {
 
 function editView(e: EditState): EditView {
   const base = formView(e);
-  return { ...base, pcId: e.pcId, canClose: !base.busy };
+  // A parked edit can be left: it stays in the queue and lapses by itself.
+  return { ...base, pcId: e.pcId, canClose: e.command.kind !== 'sending' };
 }
 
 function noteTexts(n: RowNotice | undefined): string[] {
@@ -149,7 +150,7 @@ function noteTexts(n: RowNotice | undefined): string[] {
 export function viewOf(s: PjsState): PjsView {
   const banner = bannerOf(s);
   const actionable = s.list.kind !== 'idle' && s.list.kind !== 'not-found';
-  const editBusy = s.edit !== null && (s.edit.command.kind === 'sending' || s.edit.command.kind === 'awaiting');
+  const editBusy = s.edit !== null && isBusy(s.edit);
   const rows: RowView[] =
     s.list.kind === 'rows'
       ? s.list.rows.map((r) => {

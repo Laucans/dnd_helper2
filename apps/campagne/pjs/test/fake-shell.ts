@@ -42,6 +42,12 @@ export async function flush(): Promise<void> {
   for (let i = 0; i < 5; i += 1) await new Promise<void>((r) => setImmediate(r));
 }
 
+/** Lets zero-delay timers (the retry pause) fire as well. */
+export async function flushTimers(): Promise<void> {
+  await new Promise<void>((r) => setTimeout(r, 15));
+  await flush();
+}
+
 export type SubmitStep = Submitted | Error | (() => Promise<Submitted>);
 export type AwaitStep = (opts: AwaitOptions) => Promise<AwaitOutcome>;
 

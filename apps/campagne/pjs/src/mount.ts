@@ -120,7 +120,7 @@ export function mount(host: HTMLElement, props: PjsProps, deps: PjsDeps): Mounte
   const ahead = el(doc, 'ul', { class: 'pjs-ahead' });
   const confirm = el(doc, 'button', { type: 'button' }, COPY.confirm);
   const cancel = el(doc, 'button', { type: 'button' }, COPY.cancel);
-  awaiting.append(awaitingTitle, el(doc, 'h4', {}, COPY.yourValue), yours, el(doc, 'h4', {}, COPY.aheadValue), ahead, confirm, cancel);
+  awaiting.append(awaitingTitle, el(doc, 'p', {}, COPY.leaveHint), el(doc, 'h4', {}, COPY.yourValue), yours, el(doc, 'h4', {}, COPY.aheadValue), ahead, confirm, cancel);
   const close = el(doc, 'button', { type: 'button' }, COPY.close);
   edit.root.insertBefore(awaiting, edit.formErrors);
   edit.root.append(close);
@@ -150,7 +150,12 @@ export function mount(host: HTMLElement, props: PjsProps, deps: PjsDeps): Mounte
     ctrl.closeEdit();
   });
 
+  let paintedRows = '';
   function paintRows(view: PjsView): void {
+    // Typing in a form does not touch the rows: leave them (and the focus on their buttons) alone.
+    const signature = JSON.stringify(view.rows);
+    if (signature === paintedRows) return;
+    paintedRows = signature;
     list.replaceChildren(
       ...view.rows.map((r) => {
         const li = el(doc, 'li', { class: 'pjs-row' });

@@ -6,6 +6,7 @@ import {
   FakeShell,
   deferred,
   flush,
+  flushTimers,
   pendingView,
   queued,
   row,
@@ -19,7 +20,7 @@ const CAMP = 'camp-1';
 function setup(campagneId: string | null = CAMP) {
   const shell = new FakeShell();
   let n = 0;
-  const ctrl = createPjsController(campagneId, { shell, newKey: () => `key-${++n}` });
+  const ctrl = createPjsController(campagneId, { shell, newKey: () => `key-${++n}`, retryMs: 0 });
   return { shell, ctrl, st: () => ctrl.getState() };
 }
 
@@ -552,6 +553,41 @@ describe('awaiting confirmation', () => {
     expect(s.shell.acts).toEqual([]);
   });
 
+  it('lets the GM leave a parked edit: the form closes, the wait stops, nothing is sent, the rows are editable again', async () => {
+    const s = await parked();
+    const signal = s.shell.awaits[0]?.opts.signal;
+    expect(viewOf(s.st()).edit?.canClose).toBe(true);
+    s.ctrl.closeEdit();
+    expect(s.st().edit).toBeNull();
+    expect(signal?.aborted).toBe(true);
+    expect(s.shell.acts).toEqual([]);
+    expect(viewOf(s.st()).rows.every((r) => r.canEdit)).toBe(true);
+  });
+
+  it('does not let the late end of a command the GM left touch the next edit form', async () => {
+    const s = await parked();
+    s.ctrl.closeEdit();
+    s.ctrl.openEdit('p2');
+    s.ctrl.setEditField('nom', 'Borek bis');
+    s.end.resolve(settledOutcome('c1', 'rejected', ['pc-active']));
+    await flush();
+    expect(s.st().edit).toMatchObject({ pcId: 'p2', values: { nom: 'Borek bis' }, formErrors: [], command: { kind: 'idle' } });
+  });
+
+  it('shows what the GM typed when the queue sends no yourValue, never an empty panel', async () => {
+    const s = loaded();
+    s.ctrl.openEdit('p1');
+    s.ctrl.setEditField('niveau', '9');
+    s.shell.submitQueue.push(submitted(pendingView('c1', 'awaiting_confirmation', { actions: ['confirm_overwrite', 'cancel'] }), 'c1'));
+    void s.ctrl.submitEdit();
+    await flush();
+    expect(viewOf(s.st()).edit?.awaiting?.yourValue).toEqual([
+      { label: 'Nom', text: 'Aria' },
+      { label: 'Classe', text: 'Mage' },
+      { label: 'Niveau', text: '9' },
+    ]);
+  });
+
   it('ignores a confirm gesture when nothing is awaiting', async () => {
     const s = loaded();
     s.ctrl.openEdit('p1');
@@ -628,6 +664,68 @@ describe('archive', () => {
     await s.ctrl.archive('p1');
     expect(s.st().edit).toMatchObject({ pcId: 'p2', values: { nom: 'Borek le Brun' } });
     expect(s.shell.submits).toHaveLength(1);
+  });
+});
+
+describe('a connection that drops while a command is alive', () => {
+  it('waits it out: the form stays pending, no second command, then ends normally', async () => {
+    const s = loaded();
+    s.shell.submitQueue.push(queued('c1'));
+    s.shell.script(
+      'c1',
+      () => Promise.reject(new TransportError('network')),
+      () => Promise.reject(new TransportError('network')),
+      () => Promise.resolve(settledOutcome('c1', 'applied')),
+    );
+    fillAdd(s.ctrl);
+    void s.ctrl.submitAdd();
+    await flushTimers();
+    expect(s.shell.submits).toHaveLength(1);
+    expect(s.shell.awaits.filter((a) => a.id === 'c1')).toHaveLength(3);
+    expect(s.st().add.command).toEqual({ kind: 'done', status: 'applied' });
+    expect(s.st().add.transportError).toBe(false);
+  });
+
+  it('keeps a parked edit pending and flagged while the link is down, so a field edit cannot queue a second edit', async () => {
+    const s = loaded();
+    s.ctrl.openEdit('p1');
+    s.shell.submitQueue.push(submitted(pendingView('c1', 'awaiting_confirmation', { yourValue: {}, actions: ['cancel'] }), 'c1'));
+    const down = deferred<AwaitOutcome>();
+    s.shell.script('c1', () => Promise.reject(new TransportError('network')), () => down.promise);
+    void s.ctrl.submitEdit();
+    await flushTimers();
+    expect(s.st().edit).toMatchObject({ transportError: true, command: { kind: 'awaiting' } });
+    s.ctrl.setEditField('nom', 'Autre');
+    expect(s.st().edit?.values.nom).toBe('Aria');
+    expect(s.shell.submits).toHaveLength(1);
+  });
+
+  it('still reports a failed send as retryable, with the same key', async () => {
+    const s = loaded();
+    s.shell.submitQueue.push(new TransportError('network'));
+    fillAdd(s.ctrl);
+    await s.ctrl.submitAdd();
+    expect(s.st().add).toMatchObject({ transportError: true, command: { kind: 'idle' } });
+  });
+});
+
+describe('refusals no longer describe the data once something applied', () => {
+  it('clears the other form’s refusals and the row notices when a command applies', async () => {
+    const s = loaded();
+    s.ctrl.openEdit('p1');
+    s.shell.submitQueue.push(queued('e1'), queued('a1'), queued('a2'));
+    s.shell.script('e1', () => Promise.resolve(settledOutcome('e1', 'rejected', ['pc-active'])));
+    void s.ctrl.submitEdit();
+    s.shell.script('a1', () => Promise.resolve(settledOutcome('a1', 'rejected', ['some-rule'])));
+    await flush();
+    await s.ctrl.archive('p2');
+    expect(s.st().edit?.formErrors).toHaveLength(1);
+    expect(s.st().rowNotices['p2']).toBeDefined();
+    s.shell.script('a2', () => Promise.resolve(settledOutcome('a2', 'applied')));
+    fillAdd(s.ctrl);
+    await s.ctrl.submitAdd();
+    expect(s.st().edit?.formErrors).toEqual([]);
+    expect(s.st().rowNotices).toEqual({});
   });
 });
 
