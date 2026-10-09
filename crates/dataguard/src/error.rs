@@ -120,3 +120,34 @@ impl From<sqlx::Error> for HoldError {
         Self::Internal(sqlstate(&e))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_driver_message_never_reaches_an_error() {
+        // A driver error that is not a database error can quote the URL it
+        // was given; only its SQLSTATE, here none, may be kept.
+        let url = "postgres://postgres:s3cret@db.internal:5432/app";
+        let errors: [fn(&str) -> sqlx::Error; 2] = [
+            |u| sqlx::Error::Configuration(u.into()),
+            |u| sqlx::Error::Protocol(u.into()),
+        ];
+        for driver in errors {
+            assert_eq!(sqlstate(&driver(url)), "n/a");
+            for shown in [
+                EngineError::from(driver(url)).to_string(),
+                SubmitError::from(driver(url)).to_string(),
+                SubmitError::from(EngineError::from(driver(url))).to_string(),
+                OperationError::from(driver(url)).to_string(),
+                OperationError::from(EngineError::from(driver(url))).to_string(),
+                HoldError::from(driver(url)).to_string(),
+            ] {
+                assert!(!shown.contains("s3cret"), "{shown}");
+                assert!(!shown.contains("db.internal"), "{shown}");
+                assert!(shown.ends_with("(SQLSTATE n/a)"), "{shown}");
+            }
+        }
+    }
+}

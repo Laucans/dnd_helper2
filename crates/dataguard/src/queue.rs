@@ -760,4 +760,120 @@ mod tests {
     fn the_park_ttl_is_a_day() {
         assert_eq!(park_ttl(), chrono::Duration::hours(24));
     }
+
+    fn manifest(effect: &str, aggregate: &str, touches: &[&str]) -> DataCapabilityManifest {
+        serde_json::from_value(json!({
+            "dataCapability": "test.op",
+            "owner": "dataguard",
+            "version": 1,
+            "effect": effect,
+            "target": {"aggregate": aggregate},
+            "touches": touches,
+            "payload": {},
+            "mode": "overwrite",
+            "invariants": [],
+            "permissions": [],
+            "callableBy": ["campagne"],
+            "idempotencyKey": "optional"
+        }))
+        .unwrap()
+    }
+
+    fn write(aggregate: &str, change: Change) -> crate::model::Write {
+        crate::model::Write {
+            aggregate: aggregate.into(),
+            change,
+        }
+    }
+
+    fn fields(v: Value) -> Map<String, Value> {
+        v.as_object().unwrap().clone()
+    }
+
+    #[test]
+    fn a_write_never_sets_the_tombstone_or_a_row_id_itself() {
+        let a = Aggregates::embedded().unwrap();
+        let pc = Uuid::new_v4();
+        let campaign = Uuid::new_v4().to_string();
+        // Even a capability that touches the tombstone only archives: an
+        // update cannot rewrite or clear `archivedAt`.
+        let archiver = manifest("update", "PJ", &["PJ.archivedAt"]);
+        for value in [json!(null), json!("2026-01-01T00:00:00Z")] {
+            let clear = Change::Update {
+                id: pc,
+                fields: fields(json!({ "archivedAt": value })),
+            };
+            assert_eq!(
+                operation(&a, &archiver, Some(pc), write("PJ", clear)),
+                Err(Malformed("field-not-writable"))
+            );
+        }
+        let adder = manifest("insert", "PJ", &[]);
+        for extra in ["archivedAt", "id"] {
+            let mut f =
+                fields(json!({"campagneId": campaign, "name": "Y", "class": "B", "level": 1}));
+            f.insert(extra.into(), json!(Uuid::new_v4().to_string()));
+            assert_eq!(
+                operation(&a, &adder, None, write("PJ", Change::Insert(f))),
+                Err(Malformed("field-not-writable")),
+                "{extra}"
+            );
+        }
+        // The engine mints the id of an insert.
+        let ok = fields(json!({"campagneId": campaign, "name": "Y", "class": "B", "level": 1}));
+        let first = operation(&a, &adder, None, write("PJ", Change::Insert(ok.clone()))).unwrap();
+        let second = operation(&a, &adder, None, write("PJ", Change::Insert(ok))).unwrap();
+        assert_eq!(first.kind, OpKind::Insert);
+        assert_ne!(first.id, second.id);
+        assert!(!first.id.is_nil());
+    }
+
+    #[test]
+    fn a_write_stays_on_its_manifest_and_its_partition() {
+        let a = Aggregates::embedded().unwrap();
+        let (target, other) = (Uuid::new_v4(), Uuid::new_v4());
+        let editor = manifest("update", "PJ", &["PJ.level"]);
+        let level = |id| Change::Update {
+            id,
+            fields: fields(json!({"level": 3})),
+        };
+
+        let edit = operation(&a, &editor, Some(target), write("PJ", level(target))).unwrap();
+        assert_eq!((edit.kind, edit.id), (OpKind::Update, target));
+
+        // A row other than the submission's target would apply outside the
+        // partition it was queued in.
+        assert_eq!(
+            operation(&a, &editor, Some(target), write("PJ", level(other))),
+            Err(Malformed("target-mismatch"))
+        );
+        let archiver = manifest("update", "PJ", &["PJ.archivedAt"]);
+        assert_eq!(
+            operation(
+                &a,
+                &archiver,
+                Some(target),
+                write("PJ", Change::Archive { id: other })
+            ),
+            Err(Malformed("target-mismatch"))
+        );
+        assert_eq!(
+            operation(&a, &editor, Some(target), write("Campagne", level(target))),
+            Err(Malformed("aggregate-mismatch"))
+        );
+        assert_eq!(
+            operation(
+                &a,
+                &editor,
+                Some(target),
+                write("PJ", Change::Archive { id: target })
+            ),
+            Err(Malformed("tombstone-not-touched"))
+        );
+        let adder = manifest("insert", "PJ", &[]);
+        assert_eq!(
+            operation(&a, &adder, Some(target), write("PJ", level(target))),
+            Err(Malformed("effect-mismatch"))
+        );
+    }
 }
