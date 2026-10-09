@@ -40,8 +40,9 @@ pub enum ListerError {
 }
 
 /// What the Capability reads through: [`Executor`] in production, a fake in
-/// tests. Declared with an explicit `impl Future` so the trait can be public.
-pub trait Lecture {
+/// tests. Declared with an explicit `impl Future` so the trait can be public;
+/// `Sync` keeps the future `Send`, so a server may await it on any thread.
+pub trait Lecture: Sync {
     fn run(
         &self,
         query: &str,
