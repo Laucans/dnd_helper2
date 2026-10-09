@@ -72,12 +72,21 @@ fn check(entry: &Entry) -> Result<(), StartError> {
     if path.extension().and_then(|e| e.to_str()) != Some("graphql") {
         return Err(invalid(&format!("query {name}: file must end in .graphql")));
     }
-    if entry.fields.is_empty() || entry.fields.iter().any(|f| f.contains('*')) {
+    if entry.fields.is_empty() || !entry.fields.iter().all(|f| field_ok(f)) {
         return Err(invalid(&format!(
-            "query {name}: fields must be explicit, with no wildcard"
+            "query {name}: fields must be explicit <entity>.<field>, with no wildcard"
         )));
     }
     Ok(())
+}
+
+/// `<entity>.<field>`: two non-empty names around one dot, no wildcard.
+fn field_ok(field: &str) -> bool {
+    field.split_once('.').is_some_and(|(entity, column)| {
+        let plain =
+            |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+        plain(entity) && plain(column)
+    })
 }
 
 /// Contract C's pattern: `^[a-z][a-z0-9-]*\.[A-Za-z][A-Za-z0-9]*$`.
@@ -192,6 +201,9 @@ mod tests {
         assert!(rejected(star));
         let empty = star.replace(r#"["v.*"]"#, "[]");
         assert!(rejected(&empty));
+        for bad in ["foo", "v.", ".a", "v.a.b", "v.a b"] {
+            assert!(rejected(&star.replace("v.*", bad)), "{bad}");
+        }
     }
 
     #[test]

@@ -79,7 +79,14 @@ pub fn connect_options(
         .map_err(|_| StartError::Malformed(DATABASE_URL_READONLY))?;
     Ok(options
         // Defence in depth: the proof of read-only is the role's privileges.
-        .options([("default_transaction_read_only", "on"), ("TimeZone", "UTC")])
+        .options([
+            ("default_transaction_read_only", "on"),
+            ("TimeZone", "UTC"),
+            // A stuck statement or client must not hold a snapshot (and one of
+            // the five pooled connections) for ever.
+            ("statement_timeout", "10000"),
+            ("idle_in_transaction_session_timeout", "10000"),
+        ])
         .application_name("campagne-persisted-query"))
 }
 
@@ -186,8 +193,9 @@ impl Executor {
             query: name.to_owned(),
             variable: variable.to_owned(),
         };
-        if let Some(extra) = variables.keys().find(|k| !operation.variables.contains(k)) {
-            return Err(invalid(extra));
+        // The name of an undeclared key is the caller's text: not echoed.
+        if variables.keys().any(|k| !operation.variables.contains(k)) {
+            return Err(invalid("(undeclared)"));
         }
         let mut ids = Vec::with_capacity(operation.variables.len());
         for variable in &operation.variables {
