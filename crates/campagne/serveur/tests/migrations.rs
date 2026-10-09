@@ -9,13 +9,14 @@ use std::time::Duration;
 use common::{TestDb, table_exists};
 use sha2::{Digest, Sha256};
 
-const ALL: [&str; 6] = [
+const ALL: [&str; 7] = [
     "0001_campagne.sql",
     "0002_pj.sql",
     "0003_vues_lecture.sql",
     "0004_role_lecture.sql",
     "0005_dataguard_version.sql",
     "0006_dataguard_queue.sql",
+    "0007_pj_origine.sql",
 ];
 
 fn mig(name: &'static str, sql: &'static str) -> Migration<'static> {
@@ -228,5 +229,67 @@ async fn a_held_lock_ends_in_an_error_not_a_hang() {
         .unwrap();
     drop(holder);
     assert_eq!(migrate::run(&db.pool, EMBEDDED).await.unwrap().applied, ALL);
+    db.drop_db().await;
+}
+
+/// Migration 0007 only adds: every existing PC reads `manual` with no
+/// external id, and no value of an older column, nor of a view, moves.
+#[tokio::test]
+async fn migration_0007_backfills_manual_and_changes_nothing_else() {
+    const OLD_ROWS: &str = "SELECT to_jsonb(x)::text FROM (
+        SELECT id, \"campagneId\", nom, classe, niveau, \"creeLe\", \"archiveLe\" FROM pj ORDER BY id) x";
+    const CAMPAIGNS: &str = "SELECT to_jsonb(x)::text FROM (SELECT * FROM campagne ORDER BY id) x";
+    const VIEWS: [&str; 2] = [
+        "SELECT to_jsonb(x)::text FROM (SELECT * FROM pj_actif ORDER BY id) x",
+        "SELECT to_jsonb(x)::text FROM (SELECT * FROM campagne_active ORDER BY id) x",
+    ];
+    async fn text_of(db: &TestDb, sql: &'static str) -> Vec<String> {
+        sqlx::query_scalar(sql).fetch_all(&db.pool).await.unwrap()
+    }
+
+    let db = TestDb::create().await;
+    migrate::run(&db.pool, &EMBEDDED[..6]).await.unwrap();
+    for (nom, archived) in [("Brume", false), ("Cendre", true)] {
+        let c: sqlx::types::Uuid = sqlx::query_scalar(
+            "INSERT INTO campagne (nom, \"archiveLe\") VALUES ($1, CASE WHEN $2 THEN now() END)
+             RETURNING id",
+        )
+        .bind(nom)
+        .bind(archived)
+        .fetch_one(&db.pool)
+        .await
+        .unwrap();
+        for (pc, pc_archived) in [("Ysolde", false), ("Corbeau", true)] {
+            sqlx::query(
+                "INSERT INTO pj (\"campagneId\", nom, classe, niveau, \"archiveLe\")
+                 VALUES ($1, $2, 'Barde', 3, CASE WHEN $3 THEN now() END)",
+            )
+            .bind(c)
+            .bind(format!("{pc} {nom}"))
+            .bind(pc_archived)
+            .execute(&db.pool)
+            .await
+            .unwrap();
+        }
+    }
+    let old_rows = text_of(&db, OLD_ROWS).await;
+    let campaigns = text_of(&db, CAMPAIGNS).await;
+    let views = [text_of(&db, VIEWS[0]).await, text_of(&db, VIEWS[1]).await];
+    assert_eq!(old_rows.len(), 4);
+
+    let report = migrate::run(&db.pool, EMBEDDED).await.unwrap();
+    assert_eq!(report.applied, ["0007_pj_origine.sql"]);
+
+    assert_eq!(text_of(&db, OLD_ROWS).await, old_rows);
+    assert_eq!(text_of(&db, CAMPAIGNS).await, campaigns);
+    assert_eq!(text_of(&db, VIEWS[0]).await, views[0]);
+    assert_eq!(text_of(&db, VIEWS[1]).await, views[1]);
+    let origins: Vec<(String, Option<String>)> =
+        sqlx::query_as("SELECT origine, \"idExterne\" FROM pj")
+            .fetch_all(&db.pool)
+            .await
+            .unwrap();
+    assert_eq!(origins.len(), 4);
+    assert!(origins.iter().all(|(o, id)| o == "manual" && id.is_none()));
     db.drop_db().await;
 }

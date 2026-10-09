@@ -22,6 +22,7 @@ axum.workspace = true
 creer-campagne = { path = "../../dataguard/data-capabilities/creer-campagne" }
 dataguard = { path = "../../dataguard" }
 hex.workspace = true
+importer-pj = { path = "../../dataguard/data-capabilities/importer-pj" }
 modifier-pj = { path = "../../dataguard/data-capabilities/modifier-pj" }
 serde_json.workspace = true
 sha2.workspace = true

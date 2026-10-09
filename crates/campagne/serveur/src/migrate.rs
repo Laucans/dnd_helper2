@@ -370,7 +370,8 @@ mod tests {
                 "0003_vues_lecture.sql",
                 "0004_role_lecture.sql",
                 "0005_dataguard_version.sql",
-                "0006_dataguard_queue.sql"
+                "0006_dataguard_queue.sql",
+                "0007_pj_origine.sql"
             ]
         );
     }
