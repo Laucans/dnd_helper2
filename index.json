@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "heads": {
+    "main_agent": "f5375cfb5965f989991dbf571127c0037ed88cbf"
+  },
+  "snapshots": [
+    {
+      "branch": "main_agent",
+      "sha": "f5375cfb5965f989991dbf571127c0037ed88cbf",
+      "at": "2026-10-09T21:52:33Z",
+      "dir": "main_agent/20261009T215233Z-f5375cf",
+      "schema": true,
+      "model": false
+    }
+  ]
+}
