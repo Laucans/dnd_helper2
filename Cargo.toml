@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/campagne/capabilities/lister-campagnes",
+    "crates/campagne/capabilities/lister-pjs",
     "crates/campagne/persisted-query",
     "crates/campagne/serveur",
     "crates/dataguard",
