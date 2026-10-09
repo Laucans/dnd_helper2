@@ -166,7 +166,7 @@ async fn serves_health_on_loopback_and_second_start_changes_nothing() {
     wait_healthy(&mut first, port).await;
     first.kill().await.unwrap();
     let before = bookkeeping(&db).await;
-    assert_eq!(before.len(), 4);
+    assert_eq!(before.len(), 6);
 
     let mut second = server(&vars).spawn().unwrap();
     wait_healthy(&mut second, port).await;

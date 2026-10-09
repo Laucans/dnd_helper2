@@ -134,6 +134,10 @@ async fn view_columns_are_exact_and_nothing_holds_the_party_level() {
         [
             "campagne",
             "campagne_active",
+            "data_version",
+            "dataguard_hold",
+            "dataguard_queue",
+            "dataguard_version",
             "pj",
             "pj_actif",
             "schema_migrations"
