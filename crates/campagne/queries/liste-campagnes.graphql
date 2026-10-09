@@ -1,0 +1,3 @@
+query ListeCampagnes @capability(id: "campagne.listerCampagnes") {
+  campagnes { id nom creeLe }
+}
