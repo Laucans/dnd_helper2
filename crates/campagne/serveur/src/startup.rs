@@ -82,6 +82,7 @@ pub fn registry(aggregates: &Aggregates) -> Result<Registry, StartupError> {
     let mut registry = Registry::empty();
     for (key, cap) in [
         (ajouter_pj::KEY, ajouter_pj::capability()),
+        (importer_pj::KEY, importer_pj::capability()),
         (creer_campagne::KEY, creer_campagne::capability()),
         (modifier_pj::KEY, modifier_pj::capability()),
         (archiver_pj::KEY, archiver_pj::capability()),

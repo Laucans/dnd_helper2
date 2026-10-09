@@ -92,8 +92,59 @@ async fn table_columns_are_exact() {
             ("niveau", "integer", "NO"),
             ("creeLe", "timestamp with time zone", "NO"),
             ("archiveLe", "timestamp with time zone", "YES"),
+            ("origine", "text", "NO"),
+            ("idExterne", "text", "YES"),
         ])
     );
+    db.drop_db().await;
+}
+
+/// Migration 0007: two origins, and `dndbeyond` goes with an external id
+/// while `manual` never has one. A row naming no origin is `manual`.
+#[tokio::test]
+async fn origine_takes_two_values_and_pairs_with_id_externe() {
+    let db = migrated().await;
+    let c = campagne(&db.pool, "Brume", false).await;
+    let insert = "INSERT INTO pj (\"campagneId\", nom, classe, niveau, origine, \"idExterne\")
+                  VALUES ($1, $2, 'Barde', 3, $3, $4)";
+    for (origine, id) in [
+        ("autre", None),
+        ("dndbeyond", None),
+        ("manual", Some("12")),
+        ("autre", Some("12")),
+    ] {
+        assert_eq!(
+            code(
+                sqlx::query(insert)
+                    .bind(c)
+                    .bind(format!("refus {origine} {id:?}"))
+                    .bind(origine)
+                    .bind(id)
+                    .execute(&db.pool)
+                    .await
+            ),
+            "23514",
+            "{origine} {id:?}"
+        );
+    }
+    for (origine, id) in [("dndbeyond", Some("12")), ("manual", None)] {
+        sqlx::query(insert)
+            .bind(c)
+            .bind(format!("ok {origine}"))
+            .bind(origine)
+            .bind(id)
+            .execute(&db.pool)
+            .await
+            .unwrap();
+    }
+    let unnamed = pj(&db.pool, c, "Sans origine", false).await;
+    let (origine, id): (String, Option<String>) =
+        sqlx::query_as("SELECT origine, \"idExterne\" FROM pj WHERE id = $1")
+            .bind(unnamed)
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
+    assert_eq!((origine.as_str(), id), ("manual", None));
     db.drop_db().await;
 }
 

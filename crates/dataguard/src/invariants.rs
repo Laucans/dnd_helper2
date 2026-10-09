@@ -1,4 +1,4 @@
-//! The eight invariants of Campagne and PJ, as pure functions of a write and
+//! The nine invariants of Campagne and PJ, as pure functions of a write and
 //! a state.
 //!
 //! [`payload_violations`] needs the write alone: they reject at enqueue.
@@ -25,9 +25,13 @@ pub const PC_CLASS_REQUIRED: &str = "pc-class-required";
 pub const PC_LEVEL_RANGE: &str = "pc-level-range";
 pub const PC_NAME_UNIQUE_IN_CAMPAIGN: &str = "pc-name-unique-in-campaign";
 pub const PC_ACTIVE: &str = "pc-active";
+pub const PC_EXTERNAL_ID_UNIQUE_IN_CAMPAIGN: &str = "pc-external-id-unique-in-campaign";
 
 pub const CAMPAGNE: &str = "Campagne";
 pub const PJ: &str = "PJ";
+
+/// PJ fields an insert writes and no update may.
+const PC_WRITE_ONCE: [&str; 2] = ["origin", "externalId"];
 
 const NAME_MAX: usize = 100;
 const CLASS_MAX: usize = 50;
@@ -49,6 +53,9 @@ pub struct PcRow {
     pub class: String,
     pub level: i64,
     pub archived_at: Option<DateTime<Utc>>,
+    /// The id on the PC's origin (D&D Beyond), kept as written; `None` for a
+    /// hand-entered PC.
+    pub external_id: Option<String>,
 }
 
 /// The rows an invariant can see: one campaign and its PCs, read from the
@@ -103,6 +110,12 @@ impl Snapshot {
                         class: text_of(&op.fields, "class").unwrap_or_default(),
                         level: op.fields.get("level").and_then(Value::as_i64).unwrap_or(0),
                         archived_at: None,
+                        // Exact: an id is compared byte for byte, never normalised.
+                        external_id: op
+                            .fields
+                            .get("externalId")
+                            .and_then(Value::as_str)
+                            .map(str::to_owned),
                     },
                 );
             }
@@ -202,7 +215,7 @@ pub fn payload_violations(op: &Operation) -> Vec<&'static str> {
 }
 
 /// Violations that depend on the rows: activity of the campaign and the PC,
-/// and name uniqueness among the campaign's active PCs.
+/// and name and external-id uniqueness among the campaign's active PCs.
 pub fn state_violations(op: &Operation, view: &Snapshot) -> Vec<&'static str> {
     let mut out = Vec::new();
     let active_campaign = |id: Uuid| {
@@ -221,6 +234,19 @@ pub fn state_violations(op: &Operation, view: &Snapshot) -> Vec<&'static str> {
             })
         })
     };
+    // Null never matches: a write without an external id collides with no PC.
+    let id_taken = |campaign: Uuid| {
+        op.fields
+            .get("externalId")
+            .and_then(Value::as_str)
+            .is_some_and(|id| {
+                view.pcs.values().any(|pc| {
+                    pc.campaign == campaign
+                        && pc.archived_at.is_none()
+                        && pc.external_id.as_deref() == Some(id)
+                })
+            })
+    };
     match (op.aggregate.as_str(), op.kind) {
         (CAMPAGNE, OpKind::Update) if !active_campaign(op.id) => out.push(CAMPAIGN_ACTIVE),
         (CAMPAGNE, OpKind::Archive) if !view.campaigns.contains_key(&op.id) => {
@@ -230,6 +256,9 @@ pub fn state_violations(op: &Operation, view: &Snapshot) -> Vec<&'static str> {
             Some(c) if active_campaign(c) => {
                 if name_taken(c, None) {
                     out.push(PC_NAME_UNIQUE_IN_CAMPAIGN);
+                }
+                if id_taken(c) {
+                    out.push(PC_EXTERNAL_ID_UNIQUE_IN_CAMPAIGN);
                 }
             }
             _ => out.push(CAMPAIGN_ACTIVE),
@@ -262,14 +291,17 @@ pub fn all_violations(aggregates: &Aggregates, op: &Operation, view: &Snapshot) 
 }
 
 /// Fields an operation may carry: the aggregate's, minus the tombstone (an
-/// archive sets it) and minus a relation field on an update (`onUpdate:
-/// restrict`).
+/// archive sets it), minus a relation field on an update (`onUpdate:
+/// restrict`) and minus the PC's write-once fields on an update: the origin
+/// and the external id are written at insert and no update can carry them.
 pub fn writable(aggregates: &Aggregates, aggregate: &str, kind: OpKind, field: &str) -> bool {
     field != TOMBSTONE
         && aggregates
             .get(aggregate)
             .is_some_and(|a| a.fields.contains_key(field))
-        && !(kind == OpKind::Update && aggregates.is_restricted(aggregate, field))
+        && !(kind == OpKind::Update
+            && (aggregates.is_restricted(aggregate, field)
+                || (aggregate == PJ && PC_WRITE_ONCE.contains(&field))))
 }
 
 #[cfg(test)]
@@ -331,6 +363,7 @@ mod tests {
                     class: "Barde".into(),
                     level: 3,
                     archived_at,
+                    external_id: None,
                 },
             );
         }
@@ -555,6 +588,108 @@ mod tests {
         assert!(s.is_archived(&archive));
     }
 
+    /// `world()` plus an active import of id "4242" in `c` ("Lune"), an
+    /// archived one of id "777" in `c` ("Cendre") and an active one of
+    /// id "999" in `other` ("Onyx").
+    fn world_with_imports() -> (Snapshot, Uuid, Uuid) {
+        let (mut s, c, other, _) = world();
+        for (campaign, name, id, archived_at) in [
+            (c, "Lune", "4242", None),
+            (c, "Cendre", "777", Some(Utc::now())),
+            (other, "Onyx", "999", None),
+        ] {
+            let pc = Uuid::new_v4();
+            s.pcs.insert(
+                pc,
+                PcRow {
+                    id: pc,
+                    campaign,
+                    name: name.into(),
+                    class: "Barde".into(),
+                    level: 3,
+                    archived_at,
+                    external_id: Some(id.into()),
+                },
+            );
+        }
+        (s, c, other)
+    }
+
+    fn import(campaign: Uuid, name: &str, external_id: &str) -> Operation {
+        add_pc(
+            campaign,
+            json!({ "name": name, "class": "Barde", "level": 3, "externalId": external_id }),
+        )
+    }
+
+    #[test]
+    fn pc_external_id_unique_in_campaign_refuses_an_active_duplicate() {
+        let (s, c, _) = world_with_imports();
+        assert_eq!(
+            state_violations(&import(c, "Nouvelle", "4242"), &s),
+            ["pc-external-id-unique-in-campaign"]
+        );
+        assert!(state_violations(&import(c, "Nouvelle", "4243"), &s).is_empty());
+    }
+
+    #[test]
+    fn pc_external_id_unique_in_campaign_skips_archived_other_campaigns_and_null() {
+        let (s, c, other) = world_with_imports();
+        // "777" is archived in `c`; "999" lives in `other`; "4242" is free in `other`.
+        assert!(state_violations(&import(c, "Nouvelle", "777"), &s).is_empty());
+        assert!(state_violations(&import(c, "Autre", "999"), &s).is_empty());
+        assert!(state_violations(&import(other, "Autre", "4242"), &s).is_empty());
+        // Hand-entered PCs carry no id: any number of them coexist.
+        for name in ["Un", "Deux"] {
+            let manual = add_pc(c, pc_fields(json!(name), json!("Mage"), json!(2)));
+            assert!(state_violations(&manual, &s).is_empty(), "{name}");
+        }
+        let null_id = add_pc(
+            c,
+            json!({ "name": "Trois", "class": "Mage", "level": 2, "externalId": null }),
+        );
+        assert!(state_violations(&null_id, &s).is_empty());
+    }
+
+    #[test]
+    fn pc_external_id_unique_in_campaign_compares_exact_strings() {
+        let (s, c, _) = world_with_imports();
+        for different in ["424", "42420", "4242 ", " 4242", "04242"] {
+            assert!(
+                state_violations(&import(c, "Nouvelle", different), &s).is_empty(),
+                "{different:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn pc_external_id_unique_in_campaign_sees_the_pending_import_ahead() {
+        let (mut s, c, _, _) = world();
+        let first = import(c, "Premier", "5150");
+        s.apply(&first, Utc::now());
+        assert_eq!(
+            state_violations(&import(c, "Second", "5150"), &s),
+            ["pc-external-id-unique-in-campaign"]
+        );
+        // Archiving the first frees the id for the next import.
+        s.apply(&op(PJ, OpKind::Archive, first.id, json!({})), Utc::now());
+        assert!(state_violations(&import(c, "Second", "5150"), &s).is_empty());
+    }
+
+    #[test]
+    fn name_and_external_id_duplicates_are_both_reported_in_order() {
+        let a = aggregates();
+        let (s, c, _) = world_with_imports();
+        // "Lune" holds id "4242": the same name and the same id.
+        assert_eq!(
+            all_violations(&a, &import(c, "lune", "4242"), &s),
+            [
+                "pc-name-unique-in-campaign",
+                "pc-external-id-unique-in-campaign"
+            ]
+        );
+    }
+
     #[test]
     fn the_projection_applies_the_commands_ahead() {
         let (mut s, c, _, elan) = world();
@@ -585,5 +720,16 @@ mod tests {
         assert!(!writable(&a, PJ, OpKind::Update, "id"));
         assert!(writable(&a, PJ, OpKind::Update, "level"));
         assert!(!writable(&a, CAMPAGNE, OpKind::Insert, "level"));
+    }
+
+    /// The origin and the external id are written once, at insert.
+    #[test]
+    fn the_origin_and_the_external_id_are_writable_on_an_insert_only() {
+        let a = aggregates();
+        for field in ["origin", "externalId"] {
+            assert!(writable(&a, PJ, OpKind::Insert, field), "{field}");
+            assert!(!writable(&a, PJ, OpKind::Update, field), "{field}");
+            assert!(!writable(&a, CAMPAGNE, OpKind::Insert, field), "{field}");
+        }
     }
 }

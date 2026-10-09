@@ -317,7 +317,7 @@ mod tests {
     use super::*;
     use std::path::{Path, PathBuf};
 
-    const INVARIANTS: [&str; 8] = [
+    const INVARIANTS: [&str; 9] = [
         "campaign-name-required",
         "campaign-name-length",
         "campaign-active",
@@ -326,6 +326,7 @@ mod tests {
         "pc-level-range",
         "pc-name-unique-in-campaign",
         "pc-active",
+        "pc-external-id-unique-in-campaign",
     ];
 
     fn crate_dir() -> &'static Path {
@@ -396,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    fn the_eight_invariants_in_declaration_order() {
+    fn the_nine_invariants_in_declaration_order() {
         let aggregates = Aggregates::embedded().unwrap();
         assert_eq!(aggregates.invariant_order(), INVARIANTS);
         let campagne = aggregates.get("Campagne").unwrap();
@@ -407,7 +408,15 @@ mod tests {
         let pj = aggregates.get("PJ").unwrap();
         assert_eq!(
             pj.fields.keys().collect::<Vec<_>>(),
-            ["archivedAt", "campagneId", "class", "level", "name"]
+            [
+                "archivedAt",
+                "campagneId",
+                "class",
+                "externalId",
+                "level",
+                "name",
+                "origin"
+            ]
         );
     }
 

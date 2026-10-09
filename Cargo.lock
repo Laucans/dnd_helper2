@@ -292,6 +292,7 @@ dependencies = [
  "dataguard",
  "hex",
  "http-body-util",
+ "importer-pj",
  "jsonschema",
  "modifier-pj",
  "serde_json",
@@ -1012,6 +1013,16 @@ checksum = "cb68373c0d6620ef8105e855e7745e18b0d00d3bdb07fb532e434244cdb9a714"
 dependencies = [
  "icu_normalizer",
  "icu_properties",
+]
+
+[[package]]
+name = "importer-pj"
+version = "0.1.0"
+dependencies = [
+ "dataguard",
+ "jsonschema",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]

@@ -24,6 +24,8 @@ pub const COLUMNS: &[(&str, &str, &str)] = &[
     (PJ, "class", "classe"),
     (PJ, "level", "niveau"),
     (PJ, "archivedAt", "\"archiveLe\""),
+    (PJ, "origin", "origine"),
+    (PJ, "externalId", "\"idExterne\""),
 ];
 
 pub fn table(aggregate: &str) -> Option<&'static str> {
@@ -54,13 +56,13 @@ pub async fn load_scope(
     let (c_sql, p_sql) = if for_update {
         (
             "SELECT id, nom, \"archiveLe\" FROM campagne WHERE id = $1 FOR UPDATE",
-            "SELECT id, \"campagneId\", nom, classe, niveau, \"archiveLe\" FROM pj
+            "SELECT id, \"campagneId\", nom, classe, niveau, \"archiveLe\", \"idExterne\" FROM pj
              WHERE \"campagneId\" = $1 ORDER BY id FOR UPDATE",
         )
     } else {
         (
             "SELECT id, nom, \"archiveLe\" FROM campagne WHERE id = $1",
-            "SELECT id, \"campagneId\", nom, classe, niveau, \"archiveLe\" FROM pj
+            "SELECT id, \"campagneId\", nom, classe, niveau, \"archiveLe\", \"idExterne\" FROM pj
              WHERE \"campagneId\" = $1",
         )
     };
@@ -94,6 +96,7 @@ pub async fn load_scope(
                 class: row.try_get("classe")?,
                 level: i64::from(row.try_get::<i32, _>("niveau")?),
                 archived_at: row.try_get("archiveLe")?,
+                external_id: row.try_get("idExterne")?,
             },
         );
     }
@@ -130,7 +133,8 @@ enum Bind {
 }
 
 /// The bound value of a validated field: text in its stored form, a level as
-/// an integer.
+/// an integer. An origin and an external id are stored byte for byte: the
+/// id is compared as written.
 fn bind_of(field: &str, value: &Value) -> Result<Bind, sqlx::Error> {
     match field {
         "level" => value
@@ -138,6 +142,10 @@ fn bind_of(field: &str, value: &Value) -> Result<Bind, sqlx::Error> {
             .and_then(|l| i32::try_from(l).ok())
             .map(Bind::Int)
             .ok_or_else(|| unknown("a level that is not an integer")),
+        "origin" | "externalId" => value
+            .as_str()
+            .map(|s| Bind::Text(s.to_owned()))
+            .ok_or_else(|| unknown(field)),
         _ => value
             .as_str()
             .map(|s| Bind::Text(text::normalize(s)))
@@ -149,11 +157,21 @@ fn bind_of(field: &str, value: &Value) -> Result<Bind, sqlx::Error> {
 pub async fn insert(conn: &mut PgConnection, op: &Operation) -> Result<(), sqlx::Error> {
     let fields: Vec<(&str, Bind)> = match op.aggregate.as_str() {
         CAMPAGNE => vec![("name", bind_of("name", &op.fields["name"])?)],
-        PJ => vec![
-            ("name", bind_of("name", &op.fields["name"])?),
-            ("class", bind_of("class", &op.fields["class"])?),
-            ("level", bind_of("level", &op.fields["level"])?),
-        ],
+        PJ => {
+            let mut fields = vec![
+                ("name", bind_of("name", &op.fields["name"])?),
+                ("class", bind_of("class", &op.fields["class"])?),
+                ("level", bind_of("level", &op.fields["level"])?),
+            ];
+            // Written only when the command carries them: otherwise the
+            // column default (`manual`) and NULL apply.
+            for field in ["origin", "externalId"] {
+                if let Some(value) = op.fields.get(field).filter(|v| !v.is_null()) {
+                    fields.push((field, bind_of(field, value)?));
+                }
+            }
+            fields
+        }
         other => return Err(unknown(other)),
     };
     let t = table(&op.aggregate).ok_or_else(|| unknown(&op.aggregate))?;
@@ -297,7 +315,7 @@ mod tests {
                 );
             }
         }
-        assert_eq!(COLUMNS.len(), 7);
+        assert_eq!(COLUMNS.len(), 9);
     }
 
     /// No engine path removes a row: an archive is a tombstone.

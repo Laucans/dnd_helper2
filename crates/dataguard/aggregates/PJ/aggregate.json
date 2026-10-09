@@ -5,7 +5,9 @@
     "name": { "kind": "authoritative", "criticality": "normal" },
     "class": { "kind": "authoritative", "criticality": "normal" },
     "level": { "kind": "authoritative", "criticality": "normal" },
-    "archivedAt": { "kind": "authoritative", "criticality": "normal" }
+    "archivedAt": { "kind": "authoritative", "criticality": "normal" },
+    "origin": { "kind": "authoritative", "criticality": "normal" },
+    "externalId": { "kind": "authoritative", "criticality": "normal" }
   },
   "invariants": [
     {
@@ -31,6 +33,11 @@
     {
       "id": "pc-active",
       "rule": "No command but an archive writes an archived or unknown PC.",
+      "onViolation": "reject"
+    },
+    {
+      "id": "pc-external-id-unique-in-campaign",
+      "rule": "No two active PCs of one campaign share a non-null externalId, compared as exact strings; archived PCs, other campaigns and null ids do not count.",
       "onViolation": "reject"
     }
   ],

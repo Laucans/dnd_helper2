@@ -17,9 +17,16 @@ applier (`crates/dataguard`) and one `LISTEN data_version` connection.
 The body of a submission is
 `{dataCapability: "<system>.<name>@<version>", target?: {id}, payload, basedOn?: {version, values?}, idempotencyKey?}`.
 A `by` in it is ignored: every command is the GM's (`mj-local`). This server
-registers five DataCapabilities: `campagne.ajouterPj@1` (payload
+registers six DataCapabilities: `campagne.ajouterPj@1` (payload
 `{campagneId, nom, classe, niveau}`, all four, no `target`: the new PC's id is
 minted by the server and is the `PJ/<id>` of the answer's `partition`),
+`campagne.importerPj@1` (payload `{campagneId, nom, classe, niveau, externalId}`,
+all five, no `target`; it stores a PC read elsewhere with `origin` `dndbeyond`,
+and any other key, an absent `externalId` or one that is not a canonical
+decimal id of 1 to 18 digits is `malformed-submission`; a second import of an
+id already held by an active PC of the campaign is refused with the violation
+`pc-external-id-unique-in-campaign`, which is "already imported", and a same
+name with another id is refused with `pc-name-unique-in-campaign`),
 `campagne.creerCampagne@1` (payload `{name}`, no `target`: the campaign's id is
 minted, and is the part of the answer's `partition` after `Campagne/`),
 `campagne.modifierPJ@1` (payload `{nom, classe, niveau}`, all three, with

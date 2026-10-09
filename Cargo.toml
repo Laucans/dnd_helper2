@@ -11,6 +11,7 @@ members = [
     "crates/dataguard/data-capabilities/archiver-campagne",
     "crates/dataguard/data-capabilities/archiver-pj",
     "crates/dataguard/data-capabilities/creer-campagne",
+    "crates/dataguard/data-capabilities/importer-pj",
     "crates/dataguard/data-capabilities/modifier-pj",
 ]
 
