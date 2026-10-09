@@ -17,8 +17,11 @@ applier (`crates/dataguard`) and one `LISTEN data_version` connection.
 The body of a submission is
 `{dataCapability: "<system>.<name>@<version>", target?: {id}, payload, basedOn?: {version, values?}, idempotencyKey?}`.
 A `by` in it is ignored: every command is the GM's (`mj-local`). This server
-registers no DataCapability yet, so every submission is an
-`unknown-capability` until one is added.
+registers three DataCapabilities: `campagne.modifierPJ@1` (payload
+`{nom, classe, niveau}`, all three, with `basedOn`), `campagne.archiverPJ@1`
+and `campagne.archiverCampagne@1` (empty payload); each needs an
+`idempotencyKey` and takes its row id in `target.id`. Any other is an
+`unknown-capability`.
 
 ## Environment
 

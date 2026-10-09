@@ -37,10 +37,13 @@ pub enum StartupError {
     Serve(std::io::ErrorKind),
     #[error(transparent)]
     Engine(#[from] EngineError),
-    #[error("a DataCapability manifest does not parse as contract F")]
-    CapabilityManifest,
-    #[error(transparent)]
-    Registration(#[from] RegistrationError),
+    #[error("the manifest of {0} does not deserialise as contract F")]
+    CapabilityManifest(&'static str),
+    #[error("{key}: {source}")]
+    Registration {
+        key: &'static str,
+        source: RegistrationError,
+    },
 }
 
 /// Opens the pool on `DATABASE_URL`. The driver's error is dropped unread:
@@ -77,13 +80,15 @@ pub async fn prepare(
 /// capability.
 pub fn registry(aggregates: &Aggregates) -> Result<Registry, StartupError> {
     let mut registry = Registry::empty();
-    for cap in [
-        modifier_pj::capability(),
-        archiver_pj::capability(),
-        archiver_campagne::capability(),
+    for (key, cap) in [
+        (modifier_pj::KEY, modifier_pj::capability()),
+        (archiver_pj::KEY, archiver_pj::capability()),
+        (archiver_campagne::KEY, archiver_campagne::capability()),
     ] {
-        let cap = cap.map_err(|_| StartupError::CapabilityManifest)?;
-        registry.register(aggregates, cap)?;
+        let cap = cap.map_err(|_| StartupError::CapabilityManifest(key))?;
+        registry
+            .register(aggregates, cap)
+            .map_err(|source| StartupError::Registration { key, source })?;
     }
     Ok(registry)
 }

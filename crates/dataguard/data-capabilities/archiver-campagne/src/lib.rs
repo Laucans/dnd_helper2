@@ -5,7 +5,8 @@
 //! same transaction by the DataGuard, from the `PJ.campagneId` relation
 //! (`onDelete: archive`), not by this crate. Mode `overwrite`: a stale
 //! archive never waits for a confirm, and it lists no invariant, since
-//! archiving an archived campaign is a no-op and not a violation.
+//! archiving an archived campaign is a no-op and not a violation. An unknown
+//! id is the engine's to refuse, with `campaign-active`.
 
 use std::sync::Arc;
 
