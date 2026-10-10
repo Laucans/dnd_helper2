@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Campagne</title><link rel="stylesheet" href="../style.css"></head>
+<body>
+<header><h1>D&amp;D helper</h1><nav><a href="../index.html">Pages</a><a href="campagne.html">Campagne</a></nav></header>
+<main>
+  <!-- The frozen screen `campagne` (apps/screens/campagne.json), in its layout order. -->
+  <div data-component="Campagnes" data-props='{}'></div>
+  <div data-component="Pjs" data-props='{"campagneId": "$ctx.campagne"}'></div>
+  <div data-component="NiveauDuGroupe" data-props='{"campagneId": "$ctx.campagne"}'></div>
+</main>
+<script src="../mock.js"></script>
+</body>
+</html>
