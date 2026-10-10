@@ -1,0 +1,17 @@
+<!-- Card: a surface with a title, a body and actions. -->
+<style>
+.kit-card { max-width: 360px; background: var(--color-surface, #ffffff); border: var(--border-width, 1px) solid var(--color-border, #c8ccd1); border-radius: var(--radius-medium, 4px); box-shadow: var(--shadow-low, 0 1px 2px rgba(0, 0, 0, 0.12)); overflow: hidden; font-family: var(--font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif); color: var(--color-text, #202122); }
+.kit-card .media { height: 120px; background: var(--color-surface-2, #f4f7f9); border-bottom: var(--border-width, 1px) solid var(--color-border, #c8ccd1); display: grid; place-items: center; color: var(--color-text-muted, #54595d); font-size: var(--font-size-small, 0.875rem); }
+.kit-card .body { padding: var(--space-3, 16px) var(--space-4, 24px); display: grid; gap: var(--space-2, 8px); }
+.kit-card h3 { margin: 0; font-family: var(--font-family-heading, Georgia, 'Times New Roman', serif); font-size: var(--font-size-large, 1.25rem); font-weight: var(--font-weight-heading, 700); color: var(--color-text, #202122); }
+.kit-card p { margin: 0; color: var(--color-text-muted, #54595d); font-size: var(--font-size-base, 1rem); line-height: 1.5; }
+.kit-card .actions { display: flex; gap: var(--space-2, 8px); padding: 0 var(--space-4, 24px) var(--space-4, 24px); }
+.kit-card button { font: inherit; font-size: var(--font-size-base, 1rem); padding: var(--space-2, 8px) var(--space-3, 16px); border-radius: var(--radius-small, 2px); border: var(--border-width, 1px) solid var(--color-primary, #006699); cursor: pointer; background: var(--color-primary, #006699); color: var(--color-primary-contrast, #ffffff); }
+.kit-card button.secondary { background: transparent; color: var(--color-primary, #006699); }
+.kit-card button:focus-visible { outline: 2px solid var(--color-accent, #990000); outline-offset: 2px; }
+</style>
+<article class="kit-card">
+  <div class="media">image</div>
+  <div class="body"><h3>Invoice #2041</h3><p>Groupe Canix, due Nov 15. Balance of $1,280.00 remaining.</p></div>
+  <div class="actions"><button type="button">Open</button><button type="button" class="secondary">Later</button></div>
+</article>

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "state": "validated",
+  "source": "generated",
+  "brief": "",
+  "moodboard": [
+    "moodboard/screenshot-2026-10-10-at-16-05-45.png",
+    "moodboard/screenshot-2026-09-30-at-23-56-25.png",
+    "moodboard/screenshot-2026-09-30-at-16-17-07.png"
+  ],
+  "logo": "wikimedia-logo.png",
+  "candidate": false,
+  "validatedAt": "2026-10-10T22:36:15Z",
+  "issue": "https://github.com/Laucans/dnd_helper2/issues/56"
+}

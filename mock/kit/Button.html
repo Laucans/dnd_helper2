@@ -1,0 +1,20 @@
+<!-- Button: primary, secondary, ghost, danger, disabled. Every colour, radius, spacing and shadow comes from the design system's tokens. -->
+<style>
+.kit-button { display: flex; flex-wrap: wrap; gap: var(--space-2, 8px); align-items: center; font-family: var(--font-family, system-ui, sans-serif); }
+.kit-button button { font: inherit; font-size: var(--font-size-base, 1rem); font-weight: 600; line-height: 1.25; padding: var(--space-2, 8px) var(--space-3, 16px); border-radius: var(--radius-medium, 4px); border: var(--border-width, 1px) solid transparent; cursor: pointer; transition: filter .15s, background-color .15s, box-shadow .15s; }
+.kit-button button:hover { filter: brightness(0.94); }
+.kit-button button:focus-visible { outline: 2px solid var(--color-primary, #006699); outline-offset: 2px; }
+.kit-button .primary { background: var(--color-primary, #006699); color: var(--color-primary-contrast, #ffffff); border-color: var(--color-primary, #006699); box-shadow: var(--shadow-low, 0 1px 2px rgba(0, 0, 0, 0.12)); }
+.kit-button .secondary { background: var(--color-surface, #ffffff); color: var(--color-primary, #006699); border-color: var(--color-primary, #006699); }
+.kit-button .ghost { background: transparent; color: var(--color-text, #202122); }
+.kit-button .ghost:hover { background: var(--color-surface-2, #f4f7f9); filter: none; }
+.kit-button .danger { background: var(--color-danger, #b32424); color: var(--color-primary-contrast, #ffffff); border-color: var(--color-danger, #b32424); box-shadow: var(--shadow-low, 0 1px 2px rgba(0, 0, 0, 0.12)); }
+.kit-button button:disabled { opacity: .5; cursor: not-allowed; filter: none; box-shadow: none; }
+</style>
+<div class="kit-button">
+  <button type="button" class="primary">Save changes</button>
+  <button type="button" class="secondary">Cancel</button>
+  <button type="button" class="ghost">Learn more</button>
+  <button type="button" class="danger">Delete</button>
+  <button type="button" class="primary" disabled>Pay $49.00</button>
+</div>

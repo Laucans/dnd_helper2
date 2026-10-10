@@ -1,0 +1,20 @@
+<!-- Radio group: options to pick one from. -->
+<style>
+.kit-radio { font-family: var(--font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif); color: var(--color-text, #202122); font-size: var(--font-size-base, 1rem); }
+.kit-radio fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-2, 8px); }
+.kit-radio legend { font-family: var(--font-family-heading, Georgia, 'Times New Roman', serif); font-weight: var(--font-weight-heading, 700); font-size: var(--font-size-large, 1.25rem); color: var(--color-text, #202122); padding: 0; margin-bottom: var(--space-2, 8px); }
+.kit-radio label { display: flex; align-items: center; gap: var(--space-3, 16px); padding: var(--space-2, 8px) var(--space-3, 16px); background: var(--color-surface, #ffffff); border: var(--border-width, 1px) solid var(--color-border, #c8ccd1); border-radius: var(--radius-medium, 4px); box-shadow: var(--shadow-low, 0 1px 2px rgba(0, 0, 0, 0.12)); cursor: pointer; }
+.kit-radio label:hover { background: var(--color-surface-2, #f4f7f9); }
+.kit-radio label:has(input:checked) { border-color: var(--color-primary, #006699); background: var(--color-surface-2, #f4f7f9); }
+.kit-radio label:has(input:focus-visible) { outline: 2px solid var(--color-primary, #006699); outline-offset: 2px; }
+.kit-radio input { margin: 0; accent-color: var(--color-primary, #006699); }
+.kit-radio small { color: var(--color-text-muted, #54595d); margin-left: auto; font-size: var(--font-size-small, 0.875rem); }
+</style>
+<div class="kit-radio">
+  <fieldset>
+    <legend>Shipping</legend>
+    <label><input type="radio" name="kit-ship" checked><span>Standard</span><small>3–5 days</small></label>
+    <label><input type="radio" name="kit-ship"><span>Express</span><small>tomorrow</small></label>
+    <label><input type="radio" name="kit-ship"><span>Pick up</span><small>free</small></label>
+  </fieldset>
+</div>
