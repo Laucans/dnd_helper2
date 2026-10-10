@@ -1,0 +1,28 @@
+<!-- Tabs: a row of tabs switching the panel below. -->
+<style>
+.kit-tabs { font-family: var(--font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif); color: var(--color-text, #202122); background: var(--color-surface, #ffffff); border: var(--border-width, 1px) solid var(--color-border, #c8ccd1); border-radius: var(--radius-medium, 4px); box-shadow: var(--shadow-low, 0 1px 2px rgba(0, 0, 0, 0.12)); overflow: hidden; }
+.kit-tabs [role="tablist"] { display: flex; gap: var(--space-1, 4px); padding: var(--space-2, 8px) var(--space-2, 8px) 0; background: var(--color-surface-2, #f4f7f9); border-bottom: var(--border-width, 1px) solid var(--color-border, #c8ccd1); }
+.kit-tabs [role="tab"] { font: inherit; font-size: var(--font-size-base, 1rem); color: var(--color-text-muted, #54595d); background: transparent; border: var(--border-width, 1px) solid transparent; border-bottom: 0; border-radius: var(--radius-medium, 4px) var(--radius-medium, 4px) 0 0; padding: var(--space-2, 8px) var(--space-3, 16px); margin-bottom: -1px; cursor: pointer; }
+.kit-tabs [role="tab"]:hover { color: var(--color-primary, #006699); }
+.kit-tabs [role="tab"]:focus-visible { outline: 2px solid var(--color-primary, #006699); outline-offset: -2px; }
+.kit-tabs [role="tab"][aria-selected="true"] { color: var(--color-primary, #006699); background: var(--color-surface, #ffffff); border-color: var(--color-border, #c8ccd1); box-shadow: inset 0 2px 0 var(--color-primary, #006699); font-weight: 700; }
+.kit-tabs [role="tabpanel"] { padding: var(--space-3, 16px) var(--space-4, 24px); font-size: var(--font-size-base, 1rem); line-height: 1.5; }
+.kit-tabs [role="tabpanel"][hidden] { display: none; }
+</style>
+<div class="kit-tabs">
+  <div role="tablist"><button type="button" role="tab" aria-selected="true">Overview</button><button type="button" role="tab" aria-selected="false">Details</button><button type="button" role="tab" aria-selected="false">History</button></div>
+  <div role="tabpanel">Invoice #1042 for Marie Tremblay, $1,250.00, due on November 15.</div>
+  <div role="tabpanel" hidden>Customer: Marie Tremblay. Amount: $1,250.00. Terms: net 30.</div>
+  <div role="tabpanel" hidden>Oct 12 – Reminder sent. Oct 1 – Invoice issued.</div>
+</div>
+<script>
+(() => {
+  const root = document.currentScript.closest('[data-kit]') || document.currentScript.parentElement;
+  const tabs = [...root.querySelectorAll('[role="tab"]')];
+  const panels = [...root.querySelectorAll('[role="tabpanel"]')];
+  tabs.forEach((tab, i) => tab.addEventListener('click', () => {
+    tabs.forEach((t, j) => t.setAttribute('aria-selected', String(i === j)));
+    panels.forEach((p, j) => { p.hidden = i !== j; });
+  }));
+})();
+</script>

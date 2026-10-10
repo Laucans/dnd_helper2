@@ -1,0 +1,41 @@
+<!-- Select: a labelled drop list, opened by a click, one option picked. -->
+<style>
+.kit-select { position: relative; max-width: 300px; font-family: var(--font-family, system-ui, sans-serif); color: var(--color-text, #202122); }
+.kit-select > span { display: block; font-size: var(--font-size-small, 0.875rem); color: var(--color-text-muted, #54595d); text-transform: uppercase; letter-spacing: .06em; margin-bottom: var(--space-1, 4px); }
+.kit-select button { width: 100%; display: flex; justify-content: space-between; align-items: center; font: inherit; font-size: var(--font-size-base, 1rem); color: inherit; padding: var(--space-2, 8px) var(--space-3, 16px); border: var(--border-width, 1px) solid var(--color-border, #c8ccd1); border-radius: var(--radius-medium, 4px); background: var(--color-surface, #ffffff); box-shadow: var(--shadow-low, 0 1px 2px rgba(0, 0, 0, 0.12)); cursor: pointer; }
+.kit-select button:hover { border-color: var(--color-primary, #006699); }
+.kit-select button:focus { outline: 2px solid var(--color-primary, #006699); outline-offset: 1px; }
+.kit-select button b { font-weight: 400; }
+.kit-select button i { font-style: normal; color: var(--color-text-muted, #54595d); margin-left: var(--space-2, 8px); }
+.kit-select ul { position: absolute; left: 0; right: 0; margin: var(--space-1, 4px) 0 0; padding: var(--space-1, 4px); list-style: none; background: var(--color-surface, #ffffff); border: var(--border-width, 1px) solid var(--color-border, #c8ccd1); border-radius: var(--radius-medium, 4px); box-shadow: var(--shadow-high, 0 8px 24px rgba(0, 0, 0, 0.18)); z-index: 5; }
+.kit-select ul[hidden] { display: none; }
+.kit-select li { padding: var(--space-2, 8px) var(--space-3, 16px); border-radius: var(--radius-small, 2px); cursor: pointer; }
+.kit-select li:hover { background: var(--color-surface-2, #f4f7f9); }
+.kit-select li[aria-selected="true"] { background: var(--color-primary, #006699); color: var(--color-primary-contrast, #ffffff); }
+</style>
+<div class="kit-select">
+  <span>Currency</span>
+  <button type="button" aria-haspopup="listbox" aria-expanded="false"><b data-value>Euro (EUR)</b><i aria-hidden="true">▾</i></button>
+  <ul role="listbox" hidden>
+    <li role="option" aria-selected="true">Euro (EUR)</li>
+    <li role="option">US dollar (USD)</li>
+    <li role="option">Canadian dollar (CAD)</li>
+    <li role="option">Pound sterling (GBP)</li>
+  </ul>
+</div>
+<script>
+(() => {
+  const root = document.currentScript.closest('[data-kit]') || document.currentScript.parentElement;
+  const button = root.querySelector('button');
+  const list = root.querySelector('ul');
+  button.addEventListener('click', () => { list.hidden = !list.hidden; button.setAttribute('aria-expanded', String(!list.hidden)); });
+  list.addEventListener('click', (e) => {
+    const li = e.target.closest('li');
+    if (!li) return;
+    list.querySelectorAll('li').forEach((x) => x.setAttribute('aria-selected', String(x === li)));
+    root.querySelector('[data-value]').textContent = li.textContent;
+    list.hidden = true;
+    button.setAttribute('aria-expanded', 'false');
+  });
+})();
+</script>

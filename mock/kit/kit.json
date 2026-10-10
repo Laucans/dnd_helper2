@@ -1,0 +1,210 @@
+{
+  "version": 1,
+  "checked": [
+    "button",
+    "input",
+    "select",
+    "checkbox",
+    "radio",
+    "toggle",
+    "menu",
+    "tabs",
+    "card",
+    "modal",
+    "table",
+    "carousel",
+    "badge",
+    "toast",
+    "pagination",
+    "breadcrumb"
+  ],
+  "components": [
+    {
+      "name": "Button",
+      "base": "button",
+      "title": "Button",
+      "what": "Primary, secondary and ghost buttons, with a disabled state.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:17:09Z"
+    },
+    {
+      "name": "Input",
+      "base": "input",
+      "title": "Text input",
+      "what": "A labelled text field with a hint, an error state and a disabled state.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:17:40Z"
+    },
+    {
+      "name": "Select",
+      "base": "select",
+      "title": "Drop list",
+      "what": "A labelled list to pick one option from, opened by a click.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:17:42Z"
+    },
+    {
+      "name": "Checkbox",
+      "base": "checkbox",
+      "title": "Checkbox",
+      "what": "A group of options to tick, several at once.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:17:40Z"
+    },
+    {
+      "name": "Radio",
+      "base": "radio",
+      "title": "Radio group",
+      "what": "A group of options to pick one from.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:17:45Z"
+    },
+    {
+      "name": "Toggle",
+      "base": "toggle",
+      "title": "Toggle switch",
+      "what": "An on/off switch with its label.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:17:46Z"
+    },
+    {
+      "name": "Menu",
+      "base": "menu",
+      "title": "Navigation menu",
+      "what": "A horizontal navigation bar with a brand, links and the current one marked.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:17:48Z"
+    },
+    {
+      "name": "Tabs",
+      "base": "tabs",
+      "title": "Tabs",
+      "what": "A row of tabs that switch the panel shown below.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:17:53Z"
+    },
+    {
+      "name": "Card",
+      "base": "card",
+      "title": "Card",
+      "what": "A surface with a title, a body and actions.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:17:53Z"
+    },
+    {
+      "name": "Table",
+      "base": "table",
+      "title": "Data table",
+      "what": "A table with a header row, striped rows and a numeric column.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:17:54Z"
+    },
+    {
+      "name": "Badge",
+      "base": "badge",
+      "title": "Badge",
+      "what": "Small labels: neutral, success, danger, accent.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:17:58Z"
+    },
+    {
+      "name": "Breadcrumb",
+      "base": "breadcrumb",
+      "title": "Breadcrumb",
+      "what": "The path to the current page, each step a link.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:17:59Z"
+    },
+    {
+      "name": "Carousel",
+      "base": "carousel",
+      "title": "Carousel",
+      "what": "Slides that turn by arrows and dots, and on their own every few seconds.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:18:04Z"
+    },
+    {
+      "name": "Toast",
+      "base": "toast",
+      "title": "Toast",
+      "what": "A short message that slides in at a corner and leaves on its own.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:18:06Z"
+    },
+    {
+      "name": "Pagination",
+      "base": "pagination",
+      "title": "Pagination",
+      "what": "Previous, numbered pages and next, the current one marked.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:18:05Z"
+    },
+    {
+      "name": "Modal",
+      "base": "modal",
+      "title": "Modal dialog",
+      "what": "A dialog over the page, opened by a button, closed by its buttons or Escape.",
+      "prompt": "",
+      "reference": "",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:18:13Z"
+    },
+    {
+      "name": "HeroPortrait",
+      "base": "",
+      "title": "Portrait de hero",
+      "what": "",
+      "prompt": "An illustration of a character into a heroic fantasy frame",
+      "reference": "HeroPortrait.reference.webp",
+      "state": "generated",
+      "why": "",
+      "generatedAt": "2026-10-10T20:20:48Z"
+    }
+  ]
+}

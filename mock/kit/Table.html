@@ -1,0 +1,19 @@
+<!-- Table: a header row, striped rows, a numeric column aligned right. -->
+<style>
+.kit-table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: var(--font-family, system-ui, sans-serif); color: var(--color-text, #202122); font-size: var(--font-size-base, 1rem); background: var(--color-surface, #ffffff); border: var(--border-width, 1px) solid var(--color-border, #c8ccd1); border-radius: var(--radius-medium, 4px); box-shadow: var(--shadow-low, 0 1px 2px rgba(0, 0, 0, 0.12)); overflow: hidden; }
+.kit-table th, .kit-table td { text-align: left; padding: var(--space-2, 8px) var(--space-3, 16px); border-bottom: var(--border-width, 1px) solid var(--color-border, #c8ccd1); }
+.kit-table th { font-family: var(--font-family-heading, Georgia, 'Times New Roman', serif); font-weight: var(--font-weight-heading, 700); font-size: var(--font-size-small, 0.875rem); color: var(--color-primary-contrast, #ffffff); background: var(--color-primary, #006699); border-bottom: var(--border-width, 1px) solid var(--color-primary, #006699); letter-spacing: .04em; }
+.kit-table tbody tr:nth-child(even) { background: var(--color-surface-2, #f4f7f9); }
+.kit-table tbody tr:hover { background: var(--color-surface-2, #f4f7f9); filter: brightness(0.96); }
+.kit-table td:first-child { color: var(--color-primary, #006699); font-weight: var(--font-weight-heading, 700); }
+.kit-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.kit-table tr:last-child td { border-bottom: 0; }
+</style>
+<table class="kit-table">
+  <thead><tr><th>Order</th><th>Customer</th><th>Status</th><th class="num">Total</th></tr></thead>
+  <tbody>
+    <tr><td>#2041</td><td>Jane Doe</td><td>Shipped</td><td class="num">128.00</td></tr>
+    <tr><td>#2040</td><td>Ada Lovelace</td><td>Paid</td><td class="num">1 240.50</td></tr>
+    <tr><td>#2039</td><td>Grace Hopper</td><td>Pending</td><td class="num">64.90</td></tr>
+  </tbody>
+</table>

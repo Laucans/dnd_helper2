@@ -1,0 +1,19 @@
+<!-- Input: a labelled text field, a hint, an error state, a disabled state. -->
+<style>
+.kit-input { display: grid; gap: var(--space-4, 24px); max-width: 360px; font-family: var(--font-family, system-ui, sans-serif); color: var(--color-text, #202122); }
+.kit-input label { display: grid; gap: var(--space-1, 4px); font-size: var(--font-size-small, 0.875rem); font-weight: 600; color: var(--color-text-muted, #54595d); }
+.kit-input input { font: inherit; font-size: var(--font-size-base, 1rem); color: var(--color-text, #202122); padding: var(--space-2, 8px) var(--space-3, 16px); border: var(--border-width, 1px) solid var(--color-border, #c8ccd1); border-radius: var(--radius-medium, 4px); background: var(--color-surface, #ffffff); box-shadow: var(--shadow-low, 0 1px 2px rgba(0, 0, 0, 0.12)); }
+.kit-input input::placeholder { color: var(--color-text-muted, #54595d); opacity: .7; }
+.kit-input input:focus { outline: 2px solid var(--color-primary, #006699); outline-offset: 1px; border-color: var(--color-primary, #006699); }
+.kit-input small { font-size: var(--font-size-small, 0.875rem); font-weight: 400; color: var(--color-text-muted, #54595d); }
+.kit-input .error { color: var(--color-danger, #b32424); }
+.kit-input .error input { border-color: var(--color-danger, #b32424); }
+.kit-input .error input:focus { outline-color: var(--color-danger, #b32424); border-color: var(--color-danger, #b32424); }
+.kit-input .error small { color: var(--color-danger, #b32424); }
+.kit-input input:disabled { background: var(--color-surface-2, #f4f7f9); color: var(--color-text-muted, #54595d); box-shadow: none; cursor: not-allowed; }
+</style>
+<div class="kit-input">
+  <label>Name<input type="text" placeholder="Jane Doe"><small>As it appears on the invoice.</small></label>
+  <label class="error">Email<input type="email" value="jane@"><small>That is not an email address.</small></label>
+  <label>Reference<input type="text" value="INV-2041" disabled></label>
+</div>

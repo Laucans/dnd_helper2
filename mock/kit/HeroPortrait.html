@@ -1,0 +1,94 @@
+<div class="kit-heroportrait">
+  <div class="kit-heroportrait__frame">
+    <div class="kit-heroportrait__art">
+      <svg viewBox="0 0 200 260" role="img" aria-label="Portrait d'Alaric le Paladin" preserveAspectRatio="xMidYMax slice">
+        <circle class="hp-halo" cx="100" cy="110" r="95"/>
+        <path class="hp-armor" d="M0 260 L0 205 Q20 170 66 160 L134 160 Q180 170 200 205 L200 260 Z"/>
+        <path class="hp-trim" d="M66 160 L100 215 L134 160 L124 156 L100 190 L76 156 Z"/>
+        <circle class="hp-pauldron" cx="38" cy="182" r="26"/>
+        <circle class="hp-pauldron" cx="162" cy="182" r="26"/>
+        <rect class="hp-skin" x="88" y="132" width="24" height="30"/>
+        <path class="hp-hair" d="M58 100 Q54 40 100 38 Q146 40 142 100 L142 140 L58 140 Z"/>
+        <ellipse class="hp-skin" cx="100" cy="98" rx="34" ry="42"/>
+        <path class="hp-beard" d="M68 104 Q70 160 100 168 Q130 160 132 104 Q118 128 100 128 Q82 128 68 104 Z"/>
+        <path class="hp-brow" d="M80 88 L94 91 M120 88 L106 91"/>
+        <circle class="hp-eye" cx="87" cy="96" r="3"/>
+        <circle class="hp-eye" cx="113" cy="96" r="3"/>
+        <path class="hp-sigil" d="M100 188 l8 14 -8 14 -8 -14 Z"/>
+      </svg>
+      <div class="kit-heroportrait__shade"></div>
+    </div>
+  </div>
+  <div class="kit-heroportrait__caption">
+    <span class="kit-heroportrait__name">Alaric</span>
+    <span class="kit-heroportrait__class">Paladin · Niveau 8</span>
+  </div>
+</div>
+<style>
+.kit-heroportrait {
+  --hp-gold: var(--color-gold, #c9a227);
+  --hp-gold-dark: var(--color-gold-dark, #6e5210);
+  --hp-gold-light: var(--color-gold-light, #f1d77a);
+  --hp-night: var(--color-night, #0b0a08);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3, 16px);
+  padding: var(--space-5, 40px);
+  background: radial-gradient(ellipse at 50% 100%, var(--hp-gold-dark) 0%, var(--hp-night) 65%);
+  border-radius: var(--radius-large, 8px);
+  font-family: var(--font-family, sans-serif);
+  color: var(--color-primary-contrast, #ffffff);
+  box-sizing: border-box;
+}
+.kit-heroportrait .kit-heroportrait__frame {
+  width: 220px;
+  padding: var(--space-2, 8px);
+  border-radius: var(--radius-pill, 999px) var(--radius-pill, 999px) var(--radius-medium, 4px) var(--radius-medium, 4px);
+  background: linear-gradient(145deg, var(--hp-gold-light), var(--hp-gold) 45%, var(--hp-gold-dark));
+  box-shadow: var(--shadow-high, 0 8px 24px rgba(0,0,0,.18)), inset 0 0 0 var(--border-width, 1px) var(--hp-gold-light);
+  box-sizing: border-box;
+}
+.kit-heroportrait .kit-heroportrait__art {
+  position: relative;
+  aspect-ratio: 200 / 260;
+  overflow: hidden;
+  border-radius: var(--radius-pill, 999px) var(--radius-pill, 999px) var(--radius-small, 2px) var(--radius-small, 2px);
+  background: linear-gradient(180deg, var(--color-primary, #006699), var(--color-text, #202122));
+  box-shadow: inset 0 0 0 var(--space-1, 4px) var(--hp-gold-dark);
+}
+.kit-heroportrait svg { display: block; width: 100%; height: 100%; }
+.kit-heroportrait .hp-halo { fill: var(--color-success, #1f7a4d); opacity: .55; }
+.kit-heroportrait .hp-armor { fill: var(--color-text, #202122); }
+.kit-heroportrait .hp-pauldron { fill: var(--hp-gold); stroke: var(--hp-gold-dark); stroke-width: 3; }
+.kit-heroportrait .hp-trim { fill: var(--hp-gold); }
+.kit-heroportrait .hp-skin { fill: var(--color-border, #c8ccd1); }
+.kit-heroportrait .hp-hair { fill: var(--color-surface-2, #f4f7f9); }
+.kit-heroportrait .hp-beard { fill: var(--color-surface-2, #f4f7f9); stroke: var(--color-border, #c8ccd1); stroke-width: 1; }
+.kit-heroportrait .hp-brow { stroke: var(--color-text-muted, #54595d); stroke-width: 3; stroke-linecap: round; fill: none; }
+.kit-heroportrait .hp-eye { fill: var(--color-text, #202122); }
+.kit-heroportrait .hp-sigil { fill: var(--hp-gold-light); }
+.kit-heroportrait .kit-heroportrait__shade {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, transparent 50%, var(--hp-night) 130%);
+  pointer-events: none;
+}
+.kit-heroportrait .kit-heroportrait__caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1, 4px);
+}
+.kit-heroportrait .kit-heroportrait__name {
+  font-family: var(--font-family-heading, serif);
+  font-weight: var(--font-weight-heading, 700);
+  font-size: var(--font-size-large, 1.25rem);
+  color: var(--hp-gold-light);
+  letter-spacing: .05em;
+}
+.kit-heroportrait .kit-heroportrait__class {
+  font-size: var(--font-size-small, 0.875rem);
+  color: var(--color-border, #c8ccd1);
+}
+</style>

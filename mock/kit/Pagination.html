@@ -1,0 +1,16 @@
+<!-- Pagination: previous, numbered pages and next, the current one marked. -->
+<style>
+.kit-pagination { display: flex; align-items: center; gap: var(--space-1, 4px); font-family: var(--font-family, system-ui, sans-serif); font-size: var(--font-size-base, 1rem); }
+.kit-pagination a, .kit-pagination span { min-width: 36px; height: 36px; box-sizing: border-box; display: inline-grid; place-items: center; padding: 0 var(--space-2, 8px); border-radius: var(--radius-medium, 4px); color: var(--color-primary, #006699); text-decoration: none; border: var(--border-width, 1px) solid transparent; background: var(--color-surface, #ffffff); }
+.kit-pagination a:hover { background: var(--color-surface-2, #f4f7f9); border-color: var(--color-border, #c8ccd1); }
+.kit-pagination a:focus-visible { outline: 2px solid var(--color-primary, #006699); outline-offset: 2px; }
+.kit-pagination a[aria-current="page"] { background: var(--color-primary, #006699); border-color: var(--color-primary, #006699); color: var(--color-primary-contrast, #ffffff); font-weight: var(--font-weight-heading, 700); box-shadow: var(--shadow-low, 0 1px 2px rgba(0, 0, 0, 0.12)); }
+.kit-pagination .gap { color: var(--color-text-muted, #54595d); background: transparent; }
+.kit-pagination .edge { border-color: var(--color-border, #c8ccd1); color: var(--color-text, #202122); font-size: var(--font-size-small, 0.875rem); padding: 0 var(--space-3, 16px); }
+.kit-pagination .edge[aria-disabled="true"] { color: var(--color-text-muted, #54595d); background: var(--color-surface-2, #f4f7f9); pointer-events: none; }
+</style>
+<nav class="kit-pagination" aria-label="pages">
+  <a class="edge" href="#" aria-disabled="true">‹ Prev</a>
+  <a href="#" aria-current="page">1</a><a href="#">2</a><a href="#">3</a><span class="gap">…</span><a href="#">12</a>
+  <a class="edge" href="#">Next ›</a>
+</nav>

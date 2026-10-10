@@ -1,0 +1,20 @@
+<!-- Checkbox: a group of options, several at once. -->
+<style>
+.kit-checkbox { display: grid; gap: var(--space-2, 8px); font-family: var(--font-family, system-ui, sans-serif); color: var(--color-text, #202122); font-size: var(--font-size-base, 1rem); }
+.kit-checkbox fieldset { border: var(--border-width, 1px) solid var(--color-border, #c8ccd1); border-radius: var(--radius-medium, 4px); background: var(--color-surface, #ffffff); box-shadow: var(--shadow-low, 0 1px 2px rgba(0, 0, 0, 0.12)); padding: var(--space-3, 16px); margin: 0; display: grid; gap: var(--space-2, 8px); }
+.kit-checkbox legend { font-family: var(--font-family-heading, Georgia, serif); font-weight: var(--font-weight-heading, 700); font-size: var(--font-size-small, 0.875rem); color: var(--color-text-muted, #54595d); text-transform: uppercase; letter-spacing: .06em; padding: 0 var(--space-2, 8px); margin-bottom: var(--space-1, 4px); }
+.kit-checkbox label { display: flex; align-items: center; gap: var(--space-2, 8px); cursor: pointer; padding: var(--space-1, 4px) var(--space-2, 8px); border-radius: var(--radius-small, 2px); }
+.kit-checkbox label:hover { background: var(--color-surface-2, #f4f7f9); }
+.kit-checkbox input { width: 18px; height: 18px; margin: 0; accent-color: var(--color-primary, #006699); border-radius: var(--radius-small, 2px); }
+.kit-checkbox input:focus-visible { outline: 2px solid var(--color-primary, #006699); outline-offset: 2px; }
+.kit-checkbox input:disabled { cursor: not-allowed; }
+.kit-checkbox input:disabled + span { color: var(--color-text-muted, #54595d); }
+</style>
+<div class="kit-checkbox">
+  <fieldset>
+    <legend>Notify me by</legend>
+    <label><input type="checkbox" checked><span>Email</span></label>
+    <label><input type="checkbox"><span>Text message</span></label>
+    <label><input type="checkbox" disabled><span>Carrier pigeon</span></label>
+  </fieldset>
+</div>
