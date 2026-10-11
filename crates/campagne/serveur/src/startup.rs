@@ -75,18 +75,13 @@ pub async fn prepare(
     Ok((pool, listener))
 }
 
-/// The DataCapabilities the shipped server accepts commands for, each
-/// checked against the aggregates. Any other command is an unknown
+/// The DataCapabilities the shipped server accepts commands for — every
+/// folder of `crates/dataguard/data-capabilities/`, discovered by `build.rs`
+/// — each checked against the aggregates. Any other command is an unknown
 /// capability.
 pub fn registry(aggregates: &Aggregates) -> Result<Registry, StartupError> {
     let mut registry = Registry::empty();
-    for (key, cap) in [
-        (ajouter_pj::KEY, ajouter_pj::capability()),
-        (creer_campagne::KEY, creer_campagne::capability()),
-        (modifier_pj::KEY, modifier_pj::capability()),
-        (archiver_pj::KEY, archiver_pj::capability()),
-        (archiver_campagne::KEY, archiver_campagne::capability()),
-    ] {
+    for (key, cap) in embedded::data_capabilities() {
         let cap = cap.map_err(|_| StartupError::CapabilityManifest(key))?;
         registry
             .register(aggregates, cap)

@@ -1,17 +1,13 @@
 [workspace]
 resolver = "3"
+# A slice is a folder under its system: listed by glob, so adding one edits
+# no shared line here (rule 2, the isolation of the slices).
 members = [
-    "crates/campagne/capabilities/lister-campagnes",
-    "crates/campagne/capabilities/lister-pjs",
-    "crates/campagne/capabilities/niveau-du-groupe",
+    "crates/campagne/capabilities/*",
     "crates/campagne/persisted-query",
     "crates/campagne/serveur",
     "crates/dataguard",
-    "crates/dataguard/data-capabilities/ajouter-pj",
-    "crates/dataguard/data-capabilities/archiver-campagne",
-    "crates/dataguard/data-capabilities/archiver-pj",
-    "crates/dataguard/data-capabilities/creer-campagne",
-    "crates/dataguard/data-capabilities/modifier-pj",
+    "crates/dataguard/data-capabilities/*",
 ]
 
 [workspace.package]
