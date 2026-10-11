@@ -1,0 +1,5 @@
+[
+  { "id": "c1a0e2d4-0000-4000-8000-000000000001", "name": "La Couronne brisée", "createdAt": 3, "archived": false },
+  { "id": "c1a0e2d4-0000-4000-8000-000000000002", "name": "Les Marais de Sel", "createdAt": 2, "archived": false },
+  { "id": "c1a0e2d4-0000-4000-8000-000000000003", "name": "Le Dernier Phare", "createdAt": 1, "archived": true }
+]

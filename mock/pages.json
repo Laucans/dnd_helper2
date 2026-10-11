@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "pages": [
+    {
+      "path": "pages/campagne.html",
+      "title": "Campagne",
+      "objective": "Le MJ choisit une campagne, saisit à la main les PJ de ses joueurs et voit le niveau du groupe d'un coup d'œil.",
+      "screen": "campagne",
+      "components": [
+        "Campagnes",
+        "Pjs",
+        "NiveauDuGroupe"
+      ]
+    }
+  ],
+  "components": [
+    {
+      "name": "Campagnes",
+      "system": "campagne",
+      "description": "Lets the GM see their active campaigns newest first, create a campaign by name, archive one they no longer play, and pick the campaign the rest of the screen works on.",
+      "fragment": "components/Campagnes.html",
+      "fixture": "fixtures/campagnes.json",
+      "needs": [
+        "campagne.listerCampagnes"
+      ],
+      "actions": [
+        "campagne.creerCampagne",
+        "campagne.archiverCampagne"
+      ],
+      "props": {
+        "campagneId": "ID"
+      },
+      "source": "apps/campagne/campagnes",
+      "builtFrom": "aa6730b87284785a"
+    },
+    {
+      "name": "Pjs",
+      "system": "campagne",
+      "description": "Liste les PJ actifs d'une campagne (du plus ancien au plus récent) ; ajoute, modifie et archive un PJ.",
+      "fragment": "components/Pjs.html",
+      "fixture": "fixtures/pjs.json",
+      "needs": [
+        "campagne.listerPjs"
+      ],
+      "actions": [
+        "campagne.ajouterPj",
+        "campagne.modifierPJ",
+        "campagne.archiverPJ"
+      ],
+      "props": {
+        "campagneId": "ID"
+      },
+      "source": "apps/campagne/pjs",
+      "builtFrom": "4b7be7c3448601b6"
+    },
+    {
+      "name": "NiveauDuGroupe",
+      "system": "campagne",
+      "description": "Niveau du groupe d'une campagne en un coup d'œil : le niveau et le nombre de PJ actifs, ou « pas de niveau de groupe » sans PJ. Se met à jour à chaque changement de données.",
+      "fragment": "components/NiveauDuGroupe.html",
+      "fixture": "fixtures/pjs.json",
+      "needs": [
+        "campagne.niveauDuGroupe"
+      ],
+      "props": {
+        "campagneId": "ID"
+      },
+      "source": "apps/campagne/niveau-du-groupe",
+      "builtFrom": "a5a11ec55b5a163f"
+    }
+  ]
+}

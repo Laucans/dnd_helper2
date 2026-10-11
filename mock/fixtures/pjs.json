@@ -1,0 +1,10 @@
+[
+  { "id": "p1000000-0000-4000-8000-000000000001", "campagneId": "c1a0e2d4-0000-4000-8000-000000000001", "name": "Aldric", "class": "Paladin", "level": 4, "createdAt": 1, "archived": false },
+  { "id": "p1000000-0000-4000-8000-000000000002", "campagneId": "c1a0e2d4-0000-4000-8000-000000000001", "name": "Maëlle", "class": "Rôdeuse", "level": 4, "createdAt": 2, "archived": false },
+  { "id": "p1000000-0000-4000-8000-000000000003", "campagneId": "c1a0e2d4-0000-4000-8000-000000000001", "name": "Tobin", "class": "Roublard", "level": 3, "createdAt": 3, "archived": false },
+  { "id": "p1000000-0000-4000-8000-000000000004", "campagneId": "c1a0e2d4-0000-4000-8000-000000000001", "name": "Ysa", "class": "Magicienne", "level": 5, "createdAt": 4, "archived": false },
+  { "id": "p1000000-0000-4000-8000-000000000005", "campagneId": "c1a0e2d4-0000-4000-8000-000000000001", "name": "Gorm", "class": "Barbare", "level": 4, "createdAt": 5, "archived": false },
+  { "id": "p1000000-0000-4000-8000-000000000006", "campagneId": "c1a0e2d4-0000-4000-8000-000000000002", "name": "Lise", "class": "Clerc", "level": 2, "createdAt": 6, "archived": false },
+  { "id": "p1000000-0000-4000-8000-000000000007", "campagneId": "c1a0e2d4-0000-4000-8000-000000000002", "name": "Brann", "class": "Guerrier", "level": 1, "createdAt": 7, "archived": false },
+  { "id": "p1000000-0000-4000-8000-000000000008", "campagneId": "c1a0e2d4-0000-4000-8000-000000000002", "name": "Nerys", "class": "Barde", "level": 2, "createdAt": 8, "archived": true }
+]
