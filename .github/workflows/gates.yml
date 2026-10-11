@@ -44,26 +44,22 @@ jobs:
           validate f-data-capability.schema.json crates/**/data-capability.json
           validate i-aggregate.schema.json crates/**/aggregate.json
           validate c-persisted-query.schema.json queries/registry.json
+          validate m-data-model.schema.json data/model.json
+          validate n-mock-pages.schema.json mock/pages.json
 
-  # Contract B — no Capability depends on another Capability or on the write
-  # side. Read in the one place Rust declares dependencies: Cargo.toml.
+  # Contract B, principle 5 — a slice knows no other slice. Checked on the
+  # graph `cargo metadata` answers, not on a Cargo.toml's text: a Capability
+  # or a DataCapability reaches no other one, directly or transitively, and
+  # only crates of its own system; what it depends on is plumbing, never a
+  # bridge; no inclusion leaves a slice's folder (scripts/isolation.sh).
   capability-isolation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: A Capability crate depends on no Capability and on nothing of the write side
+      - uses: dtolnay/rust-toolchain@stable
+      - name: A slice depends on no other slice, and only on its own system's plumbing
         shell: bash
-        run: |
-          set -euo pipefail
-          shopt -s nullglob globstar
-          failed=0
-          for toml in crates/*/capabilities/*/Cargo.toml; do
-            if grep -nE 'capabilities/|dataguard|dataqueue|resolver' "$toml" | grep -vE '^\s*[0-9]+:\s*#'; then
-              echo "::error file=$toml::a Capability must not depend on another Capability or on the write side"
-              failed=1
-            fi
-          done
-          exit $failed
+        run: bash scripts/isolation.sh
       - name: No Capability manifest names an `invokes` field
         shell: bash
         run: |
@@ -225,6 +221,46 @@ jobs:
           done
           exit $failed
 
+  # Contract F, rule 2 — a DataCapability is a folder, never an edit of a
+  # shared file: every crates/<system>/data-capabilities/<name>/ is a workspace
+  # member, its library is named after its folder (what the server's build
+  # script registers it by), and the server depends on it. Two added in
+  # parallel then meet nowhere but on a dependency line that merges on its own.
+  data-capability-registered:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Every DataCapability folder is a member, named after its folder, and a dependency of its server
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          failed=0
+          metadata=$(cargo metadata --format-version 1 --no-deps)
+          root=$(jq -r '.workspace_root' <<< "$metadata")
+          for toml in crates/*/data-capabilities/*/Cargo.toml; do
+            dir=$(dirname "$toml")
+            folder=$(basename "$dir")
+            expected=${folder//-/_}
+            if ! jq -e --arg m "$root/$toml" '.packages[] | select(.manifest_path == $m)' <<< "$metadata" > /dev/null; then
+              echo "::error file=$toml::$dir is not a workspace member — list crates/*/data-capabilities/* by glob in the root Cargo.toml"
+              failed=1
+              continue
+            fi
+            lib=$(jq -r --arg m "$root/$toml" '.packages[] | select(.manifest_path == $m) | .targets[] | select(.kind[] == "lib") | .name' <<< "$metadata")
+            if [ "$lib" != "$expected" ]; then
+              echo "::error file=$toml::the library of $folder is named $lib — name it $expected, as its folder: the server registers it by that name"
+              failed=1
+            fi
+            pkg=$(jq -r --arg m "$root/$toml" '.packages[] | select(.manifest_path == $m) | .name' <<< "$metadata")
+            if ! jq -e --arg d "$pkg" '[.packages[] | select(.manifest_path | test("/serveur/Cargo.toml$|/server/Cargo.toml$")) | .dependencies[] | select(.name == $d)] | length > 0' <<< "$metadata" > /dev/null; then
+              echo "::error file=$toml::no server depends on $pkg — add it to the server's [dependencies]; its registration is the build script's"
+              failed=1
+            fi
+          done
+          exit $failed
+
   # Contract F — an `insert` DataCapability with empty `touches` contains no
   # update, upsert, delete or trigger in its implementation: a pure addition
   # takes the fast path, and must stay one.
@@ -360,3 +396,141 @@ jobs:
             done
           done
           exit $failed
+
+  # Contracts E, N — the mock-up keeps up with the screens: every page
+  # `mock/pages.json` lists is there, and every frozen screen under
+  # `apps/screens/` has a page that names it. The mock-up is where a screen
+  # is designed and annotated before it is built; a screen without one was
+  # built blind.
+  pages-mocked:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Every listed page and micro-frontend exists, every frozen screen and every Micro-UI is mocked
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          failed=0
+          manifest=mock/pages.json
+          if [ ! -f "$manifest" ]; then
+            if compgen -G "apps/screens/*.json" > /dev/null; then
+              echo "::error file=$manifest::the mock-up has no pages.json, and there are screens to mock"
+              exit 1
+            fi
+            exit 0
+          fi
+          for page in $(jq -r '.pages[].path' "$manifest"); do
+            if [ ! -f "mock/$page" ]; then
+              echo "::error file=$manifest::lists $page, which is not under mock/"
+              failed=1
+            fi
+          done
+          for fragment in $(jq -r '.components[]?.fragment' "$manifest"); do
+            if [ ! -f "mock/$fragment" ]; then
+              echo "::error file=$manifest::lists the micro-frontend $fragment, which is not under mock/"
+              failed=1
+            fi
+          done
+          for name in $(jq -r '[.pages[].components[]?] | unique[]' "$manifest"); do
+            if ! jq -e --arg n "$name" '.components[]? | select(.name == $n)' "$manifest" > /dev/null; then
+              echo "::error file=$manifest::a page injects $name, a micro-frontend components does not list"
+              failed=1
+            fi
+          done
+          for screen in apps/screens/*.json; do
+            name=$(jq -r '.screen' "$screen")
+            if ! jq -e --arg s "$name" '.pages[] | select(.screen == $s)' "$manifest" > /dev/null; then
+              echo "::error file=$screen::screen $name has no page in $manifest — mock it first"
+              failed=1
+            fi
+          done
+          for ui in apps/**/micro-ui.json; do
+            name=$(jq -r '.microUi' "$ui")
+            fragment=$(jq -r --arg n "$name" '.components[]? | select(.name == $n) | .fragment' "$manifest")
+            if [ -z "$fragment" ]; then
+              echo "::error file=$ui::the Micro-UI $name has no micro-frontend in $manifest — mock it: its real code on the mock server"
+              failed=1
+              continue
+            fi
+            if [ ! -f "mock/$fragment" ]; then
+              echo "::error file=$manifest::the micro-frontend $name has no fragment at mock/$fragment"
+              failed=1
+              continue
+            fi
+            # Its parts are named (contract D): each action tied to an actuator, each need to a part that shows it.
+            # A hand-written fragment names the unit in the attribute itself; the real code's bundle reaches
+            # it through its identifiers (one file names them), so it carries the attribute and the unit's id.
+            bundle="mock/${fragment%.html}.js"
+            text=$(tr '\n' ' ' < "mock/$fragment")
+            if [ -f "$bundle" ]; then text="$text $(tr '\n' ' ' < "$bundle")"; fi
+            for key in actions needs; do
+              attr=reads
+              [ "$key" = actions ] && attr=writes
+              for unit in $(jq -r --arg k "$key" '.[$k][]? | if type=="string" then . else (.capability // .dataCapability // .id // empty) end' "$ui"); do
+                if [ -f "$bundle" ]; then
+                  named=0
+                  grep -qE "(data-$attr|dataset\.$attr)" <<< "$text" && grep -qiF "$unit" <<< "$text" && named=1
+                else
+                  named=0
+                  grep -qiE "(data-$attr|dataset\.$attr)[^;]{0,160}${unit//./\\.}" <<< "$text" && named=1
+                fi
+                if [ "$named" = 0 ]; then
+                  echo "::error file=$ui::the micro-frontend $name names no part data-$attr=\"$unit\" — tie the part that does it to its unit (contract D)"
+                  failed=1
+                fi
+              done
+            done
+            # The listing says the same needs and actions as the manifest.
+            for key in needs actions; do
+              ours=$(jq -c --arg k "$key" '[.[$k][]? | if type=="string" then . else (.capability // .dataCapability // .id // empty) end] | sort' "$ui")
+              theirs=$(jq -c --arg n "$name" --arg k "$key" '[.components[]? | select(.name == $n) | .[$k][]?] | sort' "$manifest")
+              if [ "$ours" != "$theirs" ]; then
+                echo "::error file=$manifest::the micro-frontend $name lists other $key than $ui — keep the listing in sync"
+                failed=1
+              fi
+            done
+          done
+          exit $failed
+      # The bundles are the real Micro-UIs' code: a change under apps/ or
+      # mock/src/ without a rebuild would show stale code on the easel.
+      - name: The micro-frontends' bundles are rebuilt from the Micro-UIs' code
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -f mock/build.sh ] || exit 0
+          [ -f package.json ] && npm ci --no-audit --no-fund --loglevel=error
+          sh mock/build.sh
+          if ! git diff --exit-code --stat -- mock/components; then
+            echo "::error file=mock/build.sh::the bundles under mock/components/ are stale — run mock/build.sh and commit them"
+            exit 1
+          fi
+
+  # Contract O — the design system has one writer. `mock/design/` and
+  # `mock/kit/` are written on the `design-system` branch and carried onto
+  # `main_agent` by the harness when the human publishes; every branch in
+  # progress finds them on its next sync, and a branch that never changes
+  # them never meets them in a merge. A pull request that changes them
+  # would make two writers: a kit component is recoded on `design-system`.
+  design-system-single-writer:
+    if: github.event_name == 'pull_request' && github.head_ref != 'design-system'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: A pull request leaves mock/design/ and mock/kit/ to the design-system branch
+        shell: bash
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only "origin/$BASE...HEAD" -- mock/design mock/kit)
+          [ -z "$changed" ] && exit 0
+          while read -r file; do
+            echo "::error file=$file::$file belongs to the design-system branch — the harness carries it here on publish; recode a kit component on design-system, never on this branch"
+          done <<< "$changed"
+          exit 1

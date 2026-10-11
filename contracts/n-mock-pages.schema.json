@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.agent-native.dev/n-mock-pages.schema.json",
+  "title": "N. Mock pages",
+  "description": "The pages and the micro-frontends of the product's mock-up: a static frontend under `mock/`, one HTML page per screen on JSON fixtures and no backend. A micro-frontend is a Micro-UI as the mock shows it — a fragment on a fixture — injected in pages; what the factory view shows on its easel, and what the gates check every screen has.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^pages/[a-z0-9][a-z0-9/-]*\\.html$",
+            "description": "The page's file, relative to `mock/`: `pages/credit-review.html`."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What a human calls it in the list of pages."
+          },
+          "objective": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The user goal the page serves — the sentence the page was created from."
+          },
+          "screen": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "The frozen screen composition this page mocks (`apps/screens/<screen>.json`), once it exists."
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Za-z0-9]*$"
+            },
+            "description": "The micro-frontends the page injects, by name: each is `<div data-component=\"<Name>\" data-props='{…}'></div>` in the page, filled by `mock/mock.js` from `components/<Name>.html`."
+          }
+        },
+        "required": [
+          "path",
+          "title",
+          "objective"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "components": {
+      "type": "array",
+      "description": "The micro-frontends the mock-up knows: one per Micro-UI shown, built or still to build.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Za-z0-9]*$",
+            "description": "The Micro-UI's name (contract D `microUi`)."
+          },
+          "system": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What it shows and lets the user do — what the composer reads."
+          },
+          "fragment": {
+            "type": "string",
+            "pattern": "^components/[A-Z][A-Za-z0-9]*\\.html$",
+            "description": "Its markup and script, relative to `mock/`: `components/RiskBadge.html`."
+          },
+          "fixture": {
+            "type": "string",
+            "pattern": "^fixtures/[A-Za-z0-9/_-]+\\.json$",
+            "description": "What its Capabilities would answer, as the fragment reads it."
+          },
+          "needs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z][A-Za-z0-9]*$"
+            },
+            "description": "The Capabilities it reads, `<system>.<name>`."
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z][A-Za-z0-9]*$"
+            },
+            "description": "The DataCapabilities a user action may trigger."
+          },
+          "props": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "The props it takes, `name: type`."
+          },
+          "source": {
+            "type": "string",
+            "pattern": "^apps/[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$",
+            "description": "The Micro-UI's folder this micro-frontend is built from (`apps/<system>/<micro-ui>`): the bundle is the real code on the mock server. Absent for a hand-written fragment."
+          },
+          "builtFrom": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{16}$",
+            "description": "Written by `mock/build.mjs`: a digest (FNV-1a 64) of the entry, the shared files under `mock/src/` and every file under `<source>/src/`, so the gates know the bundle is stale."
+          },
+          "variantOf": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Za-z0-9]*$",
+            "description": "The micro-frontend this one was forked from by a page's draft in the factory view: a copy the page edited, shown there instead of the origin. Build it as a variant of its origin, not a second Micro-UI."
+          }
+        },
+        "required": [
+          "name",
+          "system",
+          "description",
+          "fragment"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "version",
+    "pages"
+  ],
+  "additionalProperties": false
+}
