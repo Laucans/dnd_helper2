@@ -1657,7 +1657,7 @@
     return node;
   }
   function buildForm(doc, scope, title, submitLabel) {
-    const root = el(doc, "form", { class: `pjs-form pjs-form-${scope}` });
+    const root = el(doc, "form", { class: `pjs-form pjs-form-${scope}`, "data-writes": scope === "add" ? AJOUTER_PJ.dataCapability : MODIFIER_PJ.dataCapability });
     root.noValidate = true;
     root.append(el(doc, "h3", {}, title));
     const inputs = {};
@@ -1718,7 +1718,7 @@
     const ctrl = createPjsController(props2.campagneId, deps);
     const root = el(doc, "section", { class: "pjs" });
     const banner = el(doc, "p", { class: "pjs-banner", role: "status" });
-    const list = el(doc, "ul", { class: "pjs-rows" });
+    const list = el(doc, "ul", { class: "pjs-rows", "data-reads": LISTER_PJS });
     const add = buildForm(doc, "add", COPY.addTitle, COPY.add);
     const edit = buildForm(doc, "edit", COPY.editTitle, COPY.save);
     const awaiting = el(doc, "div", { class: "pjs-awaiting", role: "alert" });
@@ -1764,12 +1764,12 @@
           const li = el(doc, "li", { class: "pjs-row" });
           li.dataset["pc"] = r.id;
           li.append(el(doc, "span", { class: "pjs-name" }, r.name), el(doc, "span", { class: "pjs-class" }, r.class), el(doc, "span", { class: "pjs-level" }, String(r.level)));
-          const editBtn = el(doc, "button", { type: "button" }, COPY.edit);
+          const editBtn = el(doc, "button", { type: "button", "data-writes": MODIFIER_PJ.dataCapability }, COPY.edit);
           editBtn.disabled = !r.canEdit;
           editBtn.addEventListener("click", () => {
             ctrl.openEdit(r.id);
           });
-          const archiveBtn = el(doc, "button", { type: "button" }, r.archiving ? COPY.archiving : COPY.archive);
+          const archiveBtn = el(doc, "button", { type: "button", "data-writes": ARCHIVER_PJ.dataCapability }, r.archiving ? COPY.archiving : COPY.archive);
           archiveBtn.disabled = !r.canArchive;
           archiveBtn.addEventListener("click", () => void ctrl.archive(r.id));
           li.append(editBtn, archiveBtn, ...r.notes.map((n) => el(doc, "span", { class: "pjs-note" }, n)));
@@ -1835,10 +1835,10 @@
     const script = document.currentScript;
     const component = script && script.closest("[data-component]");
     const host2 = component ? component.querySelector(".mf-root") || component : document.body;
-    let props2 = {};
+    let props2;
     try {
       props2 = JSON.parse(component && component.dataset.props || "{}");
-    } catch (e) {
+    } catch {
       props2 = {};
     }
     return { component, host: host2, props: props2 };

@@ -31,7 +31,7 @@
         "campagneId": "ID"
       },
       "source": "apps/campagne/campagnes",
-      "builtFrom": "aa6730b87284785a"
+      "builtFrom": "173378f31c4d70ad"
     },
     {
       "name": "Pjs",
@@ -51,7 +51,7 @@
         "campagneId": "ID"
       },
       "source": "apps/campagne/pjs",
-      "builtFrom": "4b7be7c3448601b6"
+      "builtFrom": "686d4a021cc02d6e"
     },
     {
       "name": "NiveauDuGroupe",
@@ -66,7 +66,7 @@
         "campagneId": "ID"
       },
       "source": "apps/campagne/niveau-du-groupe",
-      "builtFrom": "a5a11ec55b5a163f"
+      "builtFrom": "9491f78633b85d08"
     }
   ]
 }

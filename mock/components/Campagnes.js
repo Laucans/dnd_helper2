@@ -1293,7 +1293,7 @@
     const doc = root.ownerDocument;
     const confirm = deps.confirm ?? ((message) => doc.defaultView?.confirm(message) ?? false);
     const controller = createCampagnesController({ ...deps, confirm });
-    const form = el(doc, "form", { "data-slot": "create", novalidate: "" });
+    const form = el(doc, "form", { "data-slot": "create", "data-writes": CREER_CAMPAGNE.id, novalidate: "" });
     const label = el(doc, "label", { for: "campagnes-name" }, "Nom de la campagne");
     const input = el(doc, "input", { id: "campagnes-name", type: "text", name: "name", autocomplete: "off", "aria-describedby": "campagnes-name-errors" });
     const fieldErrors = el(doc, "div", { id: "campagnes-name-errors", "data-slot": "name-errors", role: "alert" });
@@ -1302,7 +1302,7 @@
     const status = el(doc, "p", { "data-slot": "status", role: "status" });
     form.append(label, input, fieldErrors, submit, formErrors, status);
     const listStatus = el(doc, "p", { "data-slot": "list-status", role: "status" });
-    const list = el(doc, "ul", { "data-slot": "list" });
+    const list = el(doc, "ul", { "data-slot": "list", "data-reads": LISTER_CAMPAGNES });
     root.replaceChildren(form, listStatus, list);
     function paragraphs(messages) {
       return messages.map((message) => el(doc, "p", {}, message));
@@ -1337,7 +1337,7 @@
         ...view.rows.map((row) => {
           const item = el(doc, "li", { "data-id": row.id });
           const pick = el(doc, "button", { type: "button", "data-action": "select", "aria-pressed": state.selected === row.id ? "true" : "false" }, row.name);
-          const archive = el(doc, "button", { type: "button", "data-action": "archive", "aria-label": `Archiver ${row.name}` }, "Archiver");
+          const archive = el(doc, "button", { type: "button", "data-action": "archive", "data-writes": ARCHIVER_CAMPAGNE.id, "aria-label": `Archiver ${row.name}` }, "Archiver");
           archive.disabled = busy2(state.archive[row.id]);
           const phase = state.archive[row.id];
           const line = el(doc, "span", { "data-slot": "row-status", role: "status" }, (phase === void 0 ? null : describePhase(phase)) ?? "");
@@ -1400,10 +1400,10 @@
     const script = document.currentScript;
     const component = script && script.closest("[data-component]");
     const host2 = component ? component.querySelector(".mf-root") || component : document.body;
-    let props = {};
+    let props;
     try {
       props = JSON.parse(component && component.dataset.props || "{}");
-    } catch (e) {
+    } catch {
       props = {};
     }
     return { component, host: host2, props };

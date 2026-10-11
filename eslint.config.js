@@ -3,8 +3,14 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['target/**', 'node_modules/**', '**/pkg/**'] },
+  // The mock-up's bundles are built by mock/build.sh from the Micro-UIs' code, linted at its source.
+  { ignores: ['target/**', 'node_modules/**', '**/pkg/**', 'mock/components/**'] },
   js.configs.recommended,
+  {
+    // The mock-up is plain JavaScript for the browser, its build for node: their globals are the runtime's.
+    files: ['mock/**/*.js', 'mock/**/*.mjs'],
+    rules: { 'no-undef': 'off' },
+  },
   {
     files: ['packages/**/*.ts'],
     extends: [...tseslint.configs.recommendedTypeChecked],

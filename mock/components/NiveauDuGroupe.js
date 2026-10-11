@@ -153,6 +153,7 @@
     const section = doc.createElement("section");
     section.dataset["microUi"] = "NiveauDuGroupe";
     section.setAttribute("aria-live", "polite");
+    section.setAttribute("data-reads", NIVEAU_DU_GROUPE);
     const slot = (name) => {
       const element = doc.createElement("span");
       element.dataset["slot"] = name;
@@ -208,10 +209,10 @@
     const script = document.currentScript;
     const component = script && script.closest("[data-component]");
     const host2 = component ? component.querySelector(".mf-root") || component : document.body;
-    let props2 = {};
+    let props2;
     try {
       props2 = JSON.parse(component && component.dataset.props || "{}");
-    } catch (e) {
+    } catch {
       props2 = {};
     }
     return { component, host: host2, props: props2 };
