@@ -5,6 +5,7 @@
 
 import { createPjsController, type PjsDeps, type Violation } from './controller';
 import { COPY } from './copy';
+import { AJOUTER_PJ, ARCHIVER_PJ, LISTER_PJS, MODIFIER_PJ } from './identifiers';
 import { viewOf, type AwaitingView, type FormView, type PjsView, type ValueLine } from './view-model';
 import { PC_FIELDS, type PcField } from './violations';
 
@@ -17,7 +18,7 @@ export interface MountedPjs {
   unmount(): void;
 }
 
-type Attrs = Partial<Record<'class' | 'type' | 'name' | 'for' | 'id' | 'inputmode' | 'autocomplete' | 'role', string>>;
+type Attrs = Partial<Record<'class' | 'type' | 'name' | 'for' | 'id' | 'inputmode' | 'autocomplete' | 'role' | 'data-writes' | 'data-reads', string>>;
 
 function el<K extends keyof HTMLElementTagNameMap>(
   doc: Document,
@@ -41,7 +42,8 @@ interface FormDom {
 }
 
 function buildForm(doc: Document, scope: 'add' | 'edit', title: string, submitLabel: string): FormDom {
-  const root = el(doc, 'form', { class: `pjs-form pjs-form-${scope}` });
+  // Contract D: the form names the unit it writes.
+  const root = el(doc, 'form', { class: `pjs-form pjs-form-${scope}`, 'data-writes': scope === 'add' ? AJOUTER_PJ.dataCapability : MODIFIER_PJ.dataCapability });
   root.noValidate = true;
   root.append(el(doc, 'h3', {}, title));
   const inputs = {} as Record<PcField, HTMLInputElement>;
@@ -109,7 +111,7 @@ export function mount(host: HTMLElement, props: PjsProps, deps: PjsDeps): Mounte
 
   const root = el(doc, 'section', { class: 'pjs' });
   const banner = el(doc, 'p', { class: 'pjs-banner', role: 'status' });
-  const list = el(doc, 'ul', { class: 'pjs-rows' });
+  const list = el(doc, 'ul', { class: 'pjs-rows', 'data-reads': LISTER_PJS });
   const add = buildForm(doc, 'add', COPY.addTitle, COPY.add);
   const edit = buildForm(doc, 'edit', COPY.editTitle, COPY.save);
 
@@ -161,12 +163,12 @@ export function mount(host: HTMLElement, props: PjsProps, deps: PjsDeps): Mounte
         const li = el(doc, 'li', { class: 'pjs-row' });
         li.dataset['pc'] = r.id;
         li.append(el(doc, 'span', { class: 'pjs-name' }, r.name), el(doc, 'span', { class: 'pjs-class' }, r.class), el(doc, 'span', { class: 'pjs-level' }, String(r.level)));
-        const editBtn = el(doc, 'button', { type: 'button' }, COPY.edit);
+        const editBtn = el(doc, 'button', { type: 'button', 'data-writes': MODIFIER_PJ.dataCapability }, COPY.edit);
         editBtn.disabled = !r.canEdit;
         editBtn.addEventListener('click', () => {
           ctrl.openEdit(r.id);
         });
-        const archiveBtn = el(doc, 'button', { type: 'button' }, r.archiving ? COPY.archiving : COPY.archive);
+        const archiveBtn = el(doc, 'button', { type: 'button', 'data-writes': ARCHIVER_PJ.dataCapability }, r.archiving ? COPY.archiving : COPY.archive);
         archiveBtn.disabled = !r.canArchive;
         archiveBtn.addEventListener('click', () => void ctrl.archive(r.id));
         li.append(editBtn, archiveBtn, ...r.notes.map((n) => el(doc, 'span', { class: 'pjs-note' }, n)));

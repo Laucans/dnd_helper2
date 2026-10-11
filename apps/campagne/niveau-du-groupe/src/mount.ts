@@ -2,6 +2,7 @@
 // slot only when its text changed, so an announcement that changes nothing flickers nothing.
 
 import { PartyLevelController, type PartyLevelHost, type PartyLevelState } from './controller';
+import { NIVEAU_DU_GROUPE } from './identifiers';
 import { COPY, toView, type PartyLevelView } from './view-model';
 
 export interface NiveauDuGroupeProps {
@@ -35,6 +36,8 @@ export function mount(host: HTMLElement, props: NiveauDuGroupeProps, deps: Mount
   const section = doc.createElement('section');
   section.dataset['microUi'] = 'NiveauDuGroupe';
   section.setAttribute('aria-live', 'polite');
+  // Contract D: the part names the unit it shows.
+  section.setAttribute('data-reads', NIVEAU_DU_GROUPE);
   const slot = (name: string): HTMLElement => {
     const element = doc.createElement('span');
     element.dataset['slot'] = name;

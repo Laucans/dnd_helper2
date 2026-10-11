@@ -3,6 +3,7 @@
 // `textContent`, so a campaign name is always plain text (SPEC rule 10).
 
 import { createCampagnesController, type CampagnesController, type CampagnesDeps, type CampagnesState, type CommandPhase } from './controller';
+import { ARCHIVER_CAMPAGNE, CREER_CAMPAGNE, LISTER_CAMPAGNES } from './identifiers';
 import { STATE_LABELS, pendingLabel } from './violations';
 
 export interface MountedCampagnes {
@@ -47,7 +48,8 @@ export function mountCampagnes(root: HTMLElement, deps: MountDeps): MountedCampa
   const controller: CampagnesController = createCampagnesController({ ...deps, confirm });
 
   // The skeleton is built once: a refresh never recreates the input, so typed text survives it.
-  const form = el(doc, 'form', { 'data-slot': 'create', novalidate: '' });
+  // Contract D: each part names the unit it writes or shows.
+  const form = el(doc, 'form', { 'data-slot': 'create', 'data-writes': CREER_CAMPAGNE.id, novalidate: '' });
   const label = el(doc, 'label', { for: 'campagnes-name' }, 'Nom de la campagne');
   const input = el(doc, 'input', { id: 'campagnes-name', type: 'text', name: 'name', autocomplete: 'off', 'aria-describedby': 'campagnes-name-errors' });
   const fieldErrors = el(doc, 'div', { id: 'campagnes-name-errors', 'data-slot': 'name-errors', role: 'alert' });
@@ -57,7 +59,7 @@ export function mountCampagnes(root: HTMLElement, deps: MountDeps): MountedCampa
   form.append(label, input, fieldErrors, submit, formErrors, status);
 
   const listStatus = el(doc, 'p', { 'data-slot': 'list-status', role: 'status' });
-  const list = el(doc, 'ul', { 'data-slot': 'list' });
+  const list = el(doc, 'ul', { 'data-slot': 'list', 'data-reads': LISTER_CAMPAGNES });
   root.replaceChildren(form, listStatus, list);
 
   function paragraphs(messages: readonly string[]): HTMLElement[] {
@@ -97,7 +99,7 @@ export function mountCampagnes(root: HTMLElement, deps: MountDeps): MountedCampa
       ...view.rows.map((row) => {
         const item = el(doc, 'li', { 'data-id': row.id });
         const pick = el(doc, 'button', { type: 'button', 'data-action': 'select', 'aria-pressed': state.selected === row.id ? 'true' : 'false' }, row.name);
-        const archive = el(doc, 'button', { type: 'button', 'data-action': 'archive', 'aria-label': `Archiver ${row.name}` }, 'Archiver');
+        const archive = el(doc, 'button', { type: 'button', 'data-action': 'archive', 'data-writes': ARCHIVER_CAMPAGNE.id, 'aria-label': `Archiver ${row.name}` }, 'Archiver');
         archive.disabled = busy(state.archive[row.id]);
         const phase = state.archive[row.id];
         const line = el(doc, 'span', { 'data-slot': 'row-status', role: 'status' }, (phase === undefined ? null : describePhase(phase)) ?? '');
